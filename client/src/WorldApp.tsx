@@ -48,6 +48,7 @@ export default function WorldApp() {
             dpr={dpr}
             camera={{ fov: 60, near: 0.1, far: 600, position: [0, 3, 8] }}
             gl={{ antialias: true, powerPreference: 'high-performance' }}
+            onCreated={({ scene }) => { (window as unknown as { __nxScene?: unknown }).__nxScene = scene; }}
           >
             <Scene />
           </Canvas>

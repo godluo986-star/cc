@@ -48,12 +48,8 @@ export function SettingsPanel() {
   );
 }
 
-const BODY_COLORS = ['#b7cf8f', '#8fc7c4', '#f3c3cc', '#a08a78', '#f5eee0', '#cbb8d9', '#f0e3ae', '#f2d3b8', '#dce8d2'];
-const SCARF_COLORS = ['#c05555', '#3e5f8a', '#3f7d44', '#8e44ad', '#d4a017', '#e8734a', '#2b2f36', '#f2f2f2'];
-const SPROUT_COLORS = ['#5da55f', '#3f7d44', '#7fbf6f', '#d4a017', '#b03a48', '#8e44ad'];
-const BLUSH_COLORS = ['#f2a5b5', '#f5b8c4', '#e88ba0', '#f2c4cd', '#e8a58a'];
-const FEET_COLORS = ['#8a6f5f', '#5a5a6a', '#a08a7a', '#c05555', '#3e5f8a'];
-const HAT_COLORS = ['#c0392b', '#2c3e50', '#8e44ad', '#d4a017', '#3f7d44', '#22262c'];
+// 参考图规范: 团子只有主体色一个可捏维度 (低饱和粉彩; 无衣服/帽子/配件)
+const BODY_COLORS = ['#e8a58e', '#ccd6ae', '#f3c3cc', '#b7cf8f', '#8fc7c4', '#f0e3ae', '#f5eee0', '#cbb8d9', '#f2d3b8'];
 
 export function AvatarEditor() {
   const self = useSession((s) => s.self);
@@ -70,36 +66,10 @@ export function AvatarEditor() {
   const dirty = JSON.stringify(cfg) !== JSON.stringify(self.avatar);
   return (
     <div className="col">
-      <div className="dim" style={{ fontSize: 12 }}>你是一颗团子——捏出你自己的样子。</div>
-      <label className="field">身体<Sw colors={BODY_COLORS} k="shirt" /></label>
-      <label className="field">围巾<Sw colors={SCARF_COLORS} k="pants" /></label>
-      <label className="field">腮红<Sw colors={BLUSH_COLORS} k="skin" /></label>
-      <label className="field">小脚<Sw colors={FEET_COLORS} k="shoes" /></label>
-      <div className="grid2">
-        <label className="field">
-          头顶小芽
-          <select className="input" value={cfg.hairStyle} onChange={(e) => set({ hairStyle: Number(e.target.value) })}>
-            <option value={0}>卷卷芽</option>
-            <option value={1}>小叶子</option>
-            <option value={2}>不要</option>
-          </select>
-        </label>
-        <label className="field">
-          帽子
-          <select className="input" value={cfg.hat} onChange={(e) => set({ hat: Number(e.target.value) })}>
-            <option value={0}>不戴</option>
-            <option value={1}>棒球帽</option>
-            <option value={2}>毛线帽</option>
-            <option value={3}>礼帽</option>
-          </select>
-        </label>
+      <div className="dim" style={{ fontSize: 12 }}>
+        你是一颗团子。团子朴素:挑一个喜欢的颜色就够了。
       </div>
-      {cfg.hairStyle !== 2 && cfg.hat === 0 && <label className="field">小芽颜色<Sw colors={SPROUT_COLORS} k="hair" /></label>}
-      {cfg.hat !== 0 && <label className="field">帽子颜色<Sw colors={HAT_COLORS} k="hatColor" /></label>}
-      <label className="row" style={{ fontSize: 13 }}>
-        <input type="checkbox" checked={cfg.glasses} onChange={(e) => set({ glasses: e.target.checked })} />
-        眼镜
-      </label>
+      <label className="field">身体颜色<Sw colors={BODY_COLORS} k="shirt" /></label>
       <button
         className="btn primary" disabled={!dirty}
         onClick={() => connection.send('avatar_update', { avatar: cfg })}
