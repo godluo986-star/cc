@@ -128,6 +128,7 @@ export class World {
     session.voiceOn = false;
     session.voiceScope = 'near';
     session.screenOn = false;
+    this.clearShareIfOwner(space, session.id);
     space.broadcast('player_leave', { id: session.id, reason });
     space.broadcast('voice_roster', this.voicePayload(space));
     space.broadcast('screen_roster', { ids: space.screenRoster() });
@@ -152,6 +153,15 @@ export class World {
     }
     this.leaveCurrent(session);
     return this.join(session, target, spawn);
+  }
+
+  /** 大屏正在放某会话的共享画面,而该会话停止共享/离开空间时:自动清屏并广播。 */
+  clearShareIfOwner(space: Space, sessionId: number): void {
+    const m = space.media;
+    if (!m || m.kind !== 'share' || m.ownerId !== sessionId) return;
+    space.media = { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: Date.now(), setBy: m.setBy };
+    space.saveMedia();
+    space.broadcast('media_state', space.media);
   }
 
   releaseSeat(session: Session, space: Space): void {

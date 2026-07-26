@@ -195,9 +195,10 @@ export class Space {
     const row = this.db.prepare('SELECT * FROM media_states WHERE space_key = ?').get(this.key) as
       | { url: string | null; kind: string | null; playing: number; position: number; rate: number; loop: number; updated_at: number; set_by: string | null }
       | undefined;
-    if (!row) return { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: Date.now(), setBy: null };
+    // 'share' 是临时状态(WebRTC 流不跨重启),落盘的 share 一律按空屏恢复
+    if (!row || row.kind === 'share') return { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: Date.now(), setBy: null };
     return {
-      url: row.url, kind: (row.kind as 'video' | 'youtube' | null),
+      url: row.url, kind: (row.kind as MediaState['kind']),
       playing: !!row.playing, position: row.position, rate: row.rate || 1,
       loop: !!row.loop, updatedAt: row.updated_at, setBy: row.set_by,
     };

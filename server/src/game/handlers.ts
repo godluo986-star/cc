@@ -189,6 +189,21 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!sp || !sp.hasScreen || !sp.media) return;
     if (!canControlMedia(sp, s)) { toast(s, 'warn', '只有房主能控制这块屏幕。'); return; }
     if (!s.buckets.media.take()) { toast(s, 'warn', '换台太频繁啦,稍等一下。'); return; }
+    if (d.shareOwnerId !== undefined) {
+      // 投屏:把在场共享者的 WebRTC 画面设为大屏内容(流本身走 P2P)
+      const owner = [...sp.sessions].find((m) => m.id === d.shareOwnerId);
+      if (!owner || !owner.screenOn) {
+        toast(s, 'warn', '这位团子不在本空间共享屏幕,没法投上大屏。');
+        return;
+      }
+      sp.media = {
+        url: null, kind: 'share', ownerId: owner.id, playing: true, position: 0, rate: 1,
+        loop: false, updatedAt: Date.now(), setBy: s.user.username,
+      };
+      broadcastMedia(sp);
+      return;
+    }
+    if (d.url === undefined) return; // schema 保证二选一;防御
     const classified = classifyMediaUrl(d.url);
     if (!classified) {
       toast(s, 'error', '不支持的链接。请用网站网址、视频文件(mp4/webm)或 YouTube 链接。');
@@ -204,7 +219,9 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   media_ctrl(world, s, d: C2SPayload<'media_ctrl'>) {
     const sp = space(world, s);
     if (!sp || !sp.hasScreen || !sp.media) return;
-    if (!canControlMedia(sp, s)) { toast(s, 'warn', '只有房主能控制这块屏幕。'); return; }
+    // 投屏者本人永远可以停掉自己的投屏(即使无媒体控制权)
+    const isOwnShareClear = d.op === 'clear' && sp.media.kind === 'share' && sp.media.ownerId === s.id;
+    if (!canControlMedia(sp, s) && !isOwnShareClear) { toast(s, 'warn', '只有房主能控制这块屏幕。'); return; }
     if (!s.buckets.generic.take()) return;
     const m = sp.media;
     const now = Date.now();
@@ -724,7 +741,10 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!s.buckets.generic.take()) return;
     s.screenOn = d.on;
     const sp = space(world, s);
-    sp?.broadcast('screen_roster', { ids: sp.screenRoster() });
+    if (!sp) return;
+    sp.broadcast('screen_roster', { ids: sp.screenRoster() });
+    // 停止共享时,若大屏正在放此人的投屏则自动清屏
+    if (!d.on) world.clearShareIfOwner(sp, s.id);
   },
 
   rtc(world, s, d: C2SPayload<'rtc'>) {

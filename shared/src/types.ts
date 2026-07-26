@@ -32,10 +32,13 @@ export type EntitySnap = [number, number, number, number, number, number];
 export type ObjSnap = [string, number, number, number];
 
 // ── Media ───────────────────────────────────────────────────────────────────
-export type MediaKind = 'video' | 'youtube' | 'site';
+/** 'share' = 把某玩家的 WebRTC 共享画面投上大屏(url 为 null,流走 P2P)。 */
+export type MediaKind = 'video' | 'youtube' | 'site' | 'share';
 export interface MediaState {
   url: string | null;
   kind: MediaKind | null;
+  /** kind === 'share' 时:画面来源的会话 id(该会话须在场且 screenOn)。 */
+  ownerId?: number;
   playing: boolean;
   /** Seconds into the media at `updatedAt`. */
   position: number;

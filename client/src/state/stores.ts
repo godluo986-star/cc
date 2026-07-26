@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { autoDetectTier } from '../world3d/city/quality';
 import type {
   SelfState, SpaceInit, PublicProfile, ChatMsg, MediaState, MusicState, WorldEnv,
   RoomData, BoardPost, Stroke, TicTacToeState, LightsOutState, DialogueNode,
@@ -249,6 +250,16 @@ export const useUI = create<UIStore>((set) => ({
 
 // ── Settings ────────────────────────────────────────────────────────────────
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';
+
+/**
+ * 自动画质档判定(设计文档 §10「判定」列):委托给 city/quality 的
+ * navigator 启发式(移动/内存/核数),供「自动」档与首次进入时取默认值。
+ * SSR/测试环境安全(无 navigator 时返回 'high')。
+ */
+export function detectAutoQuality(): Quality {
+  return autoDetectTier();
+}
+
 interface SettingsStore {
   quality: Quality;
   shadows: boolean;
@@ -256,6 +267,12 @@ interface SettingsStore {
   reflections: boolean;
   particles: boolean;
   clouds: boolean;
+  /** 胶片颗粒(§7 后期栈 0.035;按 §10 Medium 档起关闭)。 */
+  grain: boolean;
+  /** SSAO 环境光遮蔽(§7 半径 0.4 强度 0.35;§10 仅 Ultra 默认开)。 */
+  ssao: boolean;
+  /** LOD 距离缩放系数(§10 切换距离 45/110m 的乘数;<1 更早降档,默认 1)。 */
+  lodBias: number;
   masterVolume: number;
   musicVolume: number;
   sfxVolume: number;
@@ -275,6 +292,9 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   reflections: true,
   particles: true,
   clouds: true,
+  grain: true,
+  ssao: false,
+  lodBias: 1,
   masterVolume: 0.8,
   musicVolume: 0.7,
   sfxVolume: 0.8,

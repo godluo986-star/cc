@@ -18,6 +18,14 @@ class Connection {
   /** Latency estimate (ms). */
   rtt = 0;
 
+  /**
+   * Server-clock offset estimate (ms): Date.now() + serverTimeOffset ≈ server
+   * now. Read-only view of hot.serverTimeOffset for automation (sync-test).
+   */
+  get serverTimeOffset(): number {
+    return hot.serverTimeOffset;
+  }
+
   start(): void {
     this.shouldRun = true;
     this.open();

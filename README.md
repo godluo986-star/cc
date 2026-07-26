@@ -110,6 +110,15 @@ npm i --no-save playwright     # once (kept out of project dependencies)
 node scripts/smoke.mjs         # terminal 2
 ```
 
+And a cinema media-sync test (design doc §9.1): two headless clients walk
+into the cinema, one seeks/pauses/changes playback rate, and both ends must
+agree on the server-clock-extrapolated position (`mediaPositionAt`) within
+0.5 s. Same prerequisites as the smoke test:
+
+```bash
+node scripts/sync-test.mjs     # terminal 2
+```
+
 ## Controls
 
 | Input | Action |

@@ -40,7 +40,14 @@ export const c2s = {
   stand: z.object({}),
   emote: z.object({ anim: z.number().int().min(5).max(9) }),
   avatar_update: z.object({ avatar: avatarSchema }),
-  media_set: z.object({ url: z.string().min(4).max(MEDIA_URL_MAX_LEN), loop: z.boolean().optional() }),
+  media_set: z.object({
+    url: z.string().min(4).max(MEDIA_URL_MAX_LEN).optional(),
+    loop: z.boolean().optional(),
+    /** 投屏:把该会话(须在本空间且开着屏幕共享)的画面投上大屏;与 url 二选一。 */
+    shareOwnerId: z.number().int().positive().optional(),
+  }).refine((d) => (d.url !== undefined) !== (d.shareOwnerId !== undefined), {
+    message: 'url 与 shareOwnerId 必须二选一',
+  }),
   media_ctrl: z.object({
     op: z.enum(['play', 'pause', 'seek', 'rate', 'clear']),
     value: finite.optional(),

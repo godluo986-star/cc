@@ -11,6 +11,7 @@ import {
 } from '@nexuspark/shared';
 import { BOOKS } from './books';
 import { mediaRuntime } from '../world3d/media/runtime';
+import { useFullscreenMedia } from '../world3d/media/fullscreen';
 
 /* ─── Media ──────────────────────────────────────────────────────────────── */
 /** Draggable seek bar fed by the LOCAL player (duration/pos read from the
@@ -54,7 +55,10 @@ export function MediaPanel() {
   const media = useWorld((s) => s.media);
   const room = useWorld((s) => s.room);
   const spaceKey = useWorld((s) => s.spaceKey);
+  const roster = useWorld((s) => s.roster);
+  const screenRoster = useWorld((s) => s.screenRoster);
   const self = useSession((s) => s.self);
+  const ui = useUI.getState();
   const [url, setUrl] = useState('');
   const [loop, setLoop] = useState(false);
   const canControl = !isRoomSpace(spaceKey)
@@ -62,6 +66,13 @@ export function MediaPanel() {
     || room.ownerId === self?.userId
     || room.mediaControl === 'guests';
   const isTimed = media?.kind === 'video' || media?.kind === 'youtube';
+  const isShare = media?.kind === 'share';
+  const active = !!media?.url || isShare;
+  /** 在场共享者(screenRoster ∩ roster),可被投上大屏。 */
+  const sharers = roster.filter((p) => !p.isNpc && screenRoster.includes(p.id));
+  const shareOwnerName = isShare
+    ? roster.find((p) => p.id === media?.ownerId)?.username ?? media?.setBy ?? '?'
+    : null;
 
   const position = useMemo(() => {
     if (!media?.url) return 0;
@@ -73,7 +84,12 @@ export function MediaPanel() {
   return (
     <div className="col">
       <div className="dim" style={{ fontSize: 13 }}>
-        {media?.url ? (
+        {isShare ? (
+          <>
+            正在放映(<b>共享画面</b>):由 <b>{shareOwnerName}</b> 投屏
+            {media?.setBy && media.setBy !== shareOwnerName && <>({media.setBy} 操作)</>}
+          </>
+        ) : media?.url ? (
           <>
             正在放映(<b>{media.kind === 'site' ? '网页' : media.kind === 'youtube' ? 'YouTube' : '视频'}</b>): <span style={{ wordBreak: 'break-all' }}>{media.url}</span>
             <br />由 <b>{media.setBy ?? '—'}</b> 放上来的
@@ -82,6 +98,15 @@ export function MediaPanel() {
           '屏幕空着呢。放个网站、YouTube 或视频文件链接,这里的所有人都能一起看。'
         )}
       </div>
+      {active && (
+        <button
+          className="btn"
+          style={{ alignSelf: 'flex-start' }}
+          onClick={() => { ui.closePanel(); useFullscreenMedia.getState().setOpen(true); }}
+        >
+          ⛶ 全屏观看
+        </button>
+      )}
       {!canControl && (
         <div className="dim">🔒 只有房主({room?.ownerName})能控制这块屏幕。</div>
       )}
@@ -112,6 +137,23 @@ export function MediaPanel() {
             <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
             循环播放视频
           </label>
+          {sharers.length > 0 && (
+            <div className="col" style={{ gap: 4 }}>
+              <div className="dim" style={{ fontSize: 12 }}>在场共享者——可以把 TA 的画面投上这块大屏:</div>
+              {sharers.map((p) => (
+                <div key={p.id} className="row">
+                  <span style={{ flex: 1, fontSize: 13 }}>🖥️ {p.username}{p.id === hot.selfId ? '(我)' : ''}</span>
+                  <button
+                    className="btn small primary"
+                    disabled={isShare && media?.ownerId === p.id}
+                    onClick={() => connection.send('media_set', { shareOwnerId: p.id })}
+                  >
+                    {isShare && media?.ownerId === p.id ? '投屏中' : '投到大屏'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {media?.url && isTimed && <SeekBar playing={media.playing} />}
           {media?.url && isTimed && (
             <div className="media-controls">
@@ -139,6 +181,11 @@ export function MediaPanel() {
             </button>
           )}
         </>
+      )}
+      {isShare && (canControl || media?.ownerId === hot.selfId) && (
+        <button className="btn small danger" style={{ alignSelf: 'flex-start' }} onClick={() => connection.send('media_ctrl', { op: 'clear' })}>
+          停止投屏
+        </button>
       )}
       <div className="dim" style={{ fontSize: 11 }}>
         有些网站禁止被嵌入(X-Frame-Options),会显示空白——那是网站的限制。同一空间的所有人看到同一块屏幕,视频进度自动同步;进度条读的是你本地播放器,拖动后会广播给大家。
