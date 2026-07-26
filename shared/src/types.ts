@@ -190,6 +190,7 @@ export interface SpaceInit {
   room: RoomData | null;
   games: { tictactoe: TicTacToeState[]; lightsout: LightsOutState[] };
   voiceRoster: number[];
+  screenRoster: number[];
 }
 
 export interface SelfState {

@@ -79,6 +79,7 @@ export const c2s = {
   use_item: z.object({ itemId: z.string().max(32) }),
   stash: z.object({ objectId: z.number().int(), itemId: z.string().max(32), dir: z.enum(['toStash', 'toInventory']) }),
   voice_state: z.object({ on: z.boolean() }),
+  screen_share: z.object({ on: z.boolean() }),
   rtc: z.object({
     to: z.number().int(),
     kind: z.enum(['offer', 'answer', 'ice']),
@@ -116,6 +117,7 @@ export interface S2CMap {
   room_dir: { rooms: RoomDirectoryEntry[] };
   env: WorldEnv;
   voice_roster: { ids: number[] };
+  screen_roster: { ids: number[] };
   rtc: { from: number; kind: 'offer' | 'answer' | 'ice'; payload: string };
   correction: { p: [number, number, number] };
   toast: { level: 'info' | 'warn' | 'error'; text: string };

@@ -4,9 +4,10 @@ import { useFrame } from '@react-three/fiber';
 import { useWorld } from '../state/stores';
 import { hot } from '../state/hot';
 import { Avatar, type AvatarHandle } from './Avatar';
+import ScreenBillboard from './ScreenBillboard';
 import type { PublicProfile } from '@nexuspark/shared';
 
-const RemoteAvatar = memo(function RemoteAvatar({ profile }: { profile: PublicProfile }) {
+const RemoteAvatar = memo(function RemoteAvatar({ profile, sharing }: { profile: PublicProfile; sharing: boolean }) {
   const group = useRef<THREE.Group>(null);
   const avatar = useRef<AvatarHandle>(null);
 
@@ -38,17 +39,19 @@ const RemoteAvatar = memo(function RemoteAvatar({ profile }: { profile: PublicPr
   return (
     <group ref={group}>
       <Avatar ref={avatar} config={profile.avatar} name={profile.username} isNpc={profile.isNpc} />
+      {sharing && <ScreenBillboard sessionId={profile.id} />}
     </group>
   );
 });
 
 export default function RemotePlayers() {
   const roster = useWorld((s) => s.roster);
+  const screenRoster = useWorld((s) => s.screenRoster);
   const selfEntries = roster.filter((p) => p.id !== hot.selfId);
   return (
     <>
       {selfEntries.map((p) => (
-        <RemoteAvatar key={p.id} profile={p} />
+        <RemoteAvatar key={p.id} profile={p} sharing={screenRoster.includes(p.id)} />
       ))}
     </>
   );

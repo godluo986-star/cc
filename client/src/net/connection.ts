@@ -221,6 +221,9 @@ class Connection {
       case 'voice_roster':
         world.setVoiceRoster((d as S2CMap['voice_roster']).ids);
         break;
+      case 'screen_roster':
+        world.setScreenRoster((d as S2CMap['screen_roster']).ids);
+        break;
       case 'correction': {
         const c = d as S2CMap['correction'];
         hot.local.x = c.p[0]; hot.local.y = c.p[1]; hot.local.z = c.p[2];

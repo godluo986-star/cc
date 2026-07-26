@@ -138,6 +138,7 @@ export default function HUD() {
   const voiceOn = useVoice((s) => s.enabled);
   const micLevel = useVoice((s) => s.micLevel);
   const voiceErr = useVoice((s) => s.error);
+  const screenOn = useVoice((s) => s.screenOn);
   const [emotesOpen, setEmotesOpen] = useState(false);
 
   // Esc closes panels; first-run help
@@ -231,6 +232,13 @@ export default function HUD() {
           onClick={() => voice.toggle()}
         >
           {voiceOn ? '🎙' : '🔇'}
+        </button>
+        <button
+          className={`btn ${screenOn ? 'on' : ''}`}
+          title="Share your screen (nearby players see it above your dango)"
+          onClick={() => voice.toggleScreen()}
+        >
+          🖥️
         </button>
         <button className="btn" title="Inventory" onClick={() => ui.openPanel({ kind: 'inventory' })}>🎒</button>
         <button className="btn" title="Customize dango" onClick={() => ui.openPanel({ kind: 'avatar' })}>🍡</button>

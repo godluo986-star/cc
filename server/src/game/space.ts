@@ -380,6 +380,10 @@ export class Space {
   voiceRoster(): number[] {
     return [...this.sessions].filter((s) => s.voiceOn).map((s) => s.id);
   }
+
+  screenRoster(): number[] {
+    return [...this.sessions].filter((s) => s.screenOn).map((s) => s.id);
+  }
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

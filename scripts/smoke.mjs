@@ -19,19 +19,33 @@ const check = (label, ok) => {
   if (!ok) failures++;
 };
 
+/** Get a token for a fixed test account (register once, then login). */
+async function apiToken(name) {
+  const body = { username: name, password: 'password123' };
+  let res = await fetch(`${BASE}/api/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) {
+    res = await fetch(`${BASE}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  }
+  if (!res.ok) throw new Error(`auth failed for ${name}: ${res.status}`);
+  return (await res.json()).token;
+}
+
 async function newPlayer(browser, name) {
+  const token = await apiToken(name);
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`[${name}] ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`[${name}] PAGEERROR ${e.message}`));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await page.getByText('Continue as guest').click();
-  await page.waitForSelector('canvas', { timeout: 20000 });
-  await page.waitForTimeout(1000);
+  await page.evaluate((t) => localStorage.setItem('np_token', t), token);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 40000, polling: 500 });
+  await page.waitForTimeout(800);
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(300);
   return page;
 }
+
 
 const state = (page) => page.evaluate(() => ({
   pos: [Math.round(window.__nx.hot.local.x * 10) / 10, Math.round(window.__nx.hot.local.z * 10) / 10],
@@ -81,14 +95,14 @@ const browser = await chromium.launch({
   args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'],
 });
 
-const p1 = await newPlayer(browser, 'p1');
+const p1 = await newPlayer(browser, 'smokeS_p1');
 await p1.waitForTimeout(2000);
 check('webgl context', await p1.evaluate(() => {
   const c = document.querySelector('canvas');
   return !!(c?.getContext('webgl2') || c?.getContext('webgl'));
 }));
 
-const p2 = await newPlayer(browser, 'p2');
+const p2 = await newPlayer(browser, 'smokeS_p2');
 await p2.waitForTimeout(1500);
 await p2.keyboard.press('Enter');
 await p2.keyboard.type('hello from dango two!');

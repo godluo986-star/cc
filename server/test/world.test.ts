@@ -265,6 +265,28 @@ describe('arcade games', () => {
   });
 });
 
+describe('screen sharing + rtc relay', () => {
+  it('broadcasts the screen roster and relays signaling for screen-only links', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    const b = mkSession('bob');
+    world.join(a.session, SPACE.PLAZA);
+    world.join(b.session, SPACE.PLAZA);
+    // no media on either side: relay refused
+    handlers.rtc(world, a.session, { to: b.session.id, kind: 'offer', payload: '{}' });
+    expect(lastOf(b.ws, 'rtc')).toBeUndefined();
+    // a starts sharing a screen (no voice)
+    handlers.screen_share(world, a.session, { on: true });
+    const roster = lastOf(b.ws, 'screen_roster');
+    expect(roster?.d.ids).toContain(a.session.id);
+    handlers.rtc(world, a.session, { to: b.session.id, kind: 'offer', payload: '{}' });
+    expect(lastOf(b.ws, 'rtc')?.d.from).toBe(a.session.id);
+    // leaving the space clears the flag
+    world.leaveCurrent(a.session);
+    expect(a.session.screenOn).toBe(false);
+  });
+});
+
 describe('economy', () => {
   it('vends items with credit deduction', () => {
     const { world, mkSession, db } = testRig();

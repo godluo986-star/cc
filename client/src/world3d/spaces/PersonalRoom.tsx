@@ -98,7 +98,10 @@ function RoomShell({ room }: { room: RoomData }) {
           />
         </mesh>
         {room.style.lightsOn && s.lightPreset !== 'party' && (
-          <pointLight position={[0, -0.6, 0]} color={lightColor} intensity={13} distance={13} decay={1.8} />
+          <>
+            <pointLight position={[0, -0.6, 0]} color={lightColor} intensity={26} distance={14} decay={1.7} />
+            <ambientLight intensity={0.32} color={lightColor} />
+          </>
         )}
         {room.style.lightsOn && s.lightPreset === 'party' && (
           <group ref={partyRef}>
@@ -115,7 +118,12 @@ function RoomShell({ room }: { room: RoomData }) {
             <pointLight position={[0, -0.6, 0]} color="#8a5fff" intensity={4} distance={12} />
           </group>
         )}
-        {!room.style.lightsOn && <pointLight position={[0, -0.8, 0]} color="#33415f" intensity={1.5} distance={12} />}
+        {!room.style.lightsOn && (
+          <>
+            <pointLight position={[0, -0.8, 0]} color="#33415f" intensity={2.2} distance={12} />
+            <ambientLight intensity={0.07} color="#33415f" />
+          </>
+        )}
       </group>
     </group>
   );

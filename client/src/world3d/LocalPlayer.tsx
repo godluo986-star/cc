@@ -12,9 +12,10 @@ import {
   ROOM_BOUNDS, Anim, EMOTES, INTERACT_RANGE, dist2d,
 } from '@nexuspark/shared';
 import { hot } from '../state/hot';
-import { useWorld, useUI, useSession } from '../state/stores';
+import { useWorld, useUI, useSession, useVoice } from '../state/stores';
 import { connection } from '../net/connection';
 import { Avatar, type AvatarHandle } from './Avatar';
+import ScreenBillboard from './ScreenBillboard';
 import { buildTargets, buildColliders, performAction, labelFor, type Target } from './interact';
 import { audio } from '../audio/engine';
 
@@ -28,6 +29,7 @@ export default function LocalPlayer() {
   const spaceKey = useWorld((s) => s.spaceKey);
   const room = useWorld((s) => s.room);
   const self = useSession((s) => s.self);
+  const screenOn = useVoice((s) => s.screenOn);
   const vel = useRef({ x: 0, z: 0 });
   const lastStep = useRef(0);
   const currentTarget = useRef<Target | null>(null);
@@ -285,6 +287,7 @@ export default function LocalPlayer() {
   return (
     <group ref={groupRef}>
       <Avatar ref={avatarRef} config={self.avatar} name={self.username} />
+      {screenOn && <ScreenBillboard sessionId={hot.selfId} isLocal />}
     </group>
   );
 }

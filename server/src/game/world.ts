@@ -113,6 +113,7 @@ export class World {
     space.emptySince = 0;
     space.broadcast('player_join', { profile: profileOf(session) }, session);
     space.broadcast('voice_roster', { ids: space.voiceRoster() });
+    space.broadcast('screen_roster', { ids: space.screenRoster() });
     this.systemChat(space, `${session.user.username} arrived`);
     return this.buildSpaceInit(space, session);
   }
@@ -123,11 +124,11 @@ export class World {
     this.releaseSeat(session, space);
     space.dropFromGames(session);
     space.sessions.delete(session);
-    if (session.voiceOn) {
-      session.voiceOn = false;
-    }
+    session.voiceOn = false;
+    session.screenOn = false;
     space.broadcast('player_leave', { id: session.id, reason });
     space.broadcast('voice_roster', { ids: space.voiceRoster() });
+    space.broadcast('screen_roster', { ids: space.screenRoster() });
     this.systemChat(space, `${session.user.username} left`);
     if (space.sessions.size === 0) space.emptySince = Date.now();
   }
@@ -235,6 +236,7 @@ export class World {
         lightsout: [...space.lo.values()].map((l) => space.loPublic(l)),
       },
       voiceRoster: space.voiceRoster(),
+      screenRoster: space.screenRoster(),
     };
   }
 

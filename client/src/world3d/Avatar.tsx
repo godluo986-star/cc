@@ -233,7 +233,7 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
         <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
       </mesh>
       {/* nametag */}
-      <sprite position={[0, 1.42, 0]} scale={[1.28, 0.32, 1]}>
+      <sprite position={[0, 1.38, 0]} scale={[1.05, 0.26, 1]}>
         <spriteMaterial map={nameTex} transparent depthWrite={false} />
       </sprite>
       {/* speaking indicator */}

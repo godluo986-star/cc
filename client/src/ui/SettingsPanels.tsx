@@ -123,7 +123,9 @@ export function HelpPanel() {
       <div className="dim" style={{ fontSize: 12, lineHeight: 1.6 }}>
         Things to try: queue a video in the cinema · challenge someone at the arcade's VERSUS
         machine · put a website on your room TV · redecorate your room from the ✏️ editor ·
-        toggle your mic 🎙 for proximity voice chat — people close to you hear you louder.
+        toggle your mic 🎙 for proximity voice chat — people close to you hear you louder ·
+        share your screen 🖥️ and it floats above your dango for nearby friends (low bitrate,
+        640×360) — five dango on a sofa can each share while everyone watches.
       </div>
     </div>
   );

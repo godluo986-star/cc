@@ -209,11 +209,14 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
             />
           </mesh>
           {lightsOn && (
-            <pointLight position={[0, -0.5, 0]} color={l.color} intensity={l.intensity} distance={11} decay={1.8} />
+            <pointLight position={[0, -0.5, 0]} color={l.color} intensity={l.intensity * 1.8} distance={13} decay={1.7} />
           )}
         </group>
       ))}
-      {!lightsOn && <pointLight position={[cx, 1.6, cz]} color="#3a4a6f" intensity={1.6} distance={16} />}
+      {/* soft fill so interiors read clearly at any hour */}
+      {lightsOn && <ambientLight intensity={0.3} color={cfg.neon ? '#8a90c8' : '#ffe9cf'} />}
+      {!lightsOn && <pointLight position={[cx, 1.6, cz]} color="#3a4a6f" intensity={2.2} distance={16} />}
+      {!lightsOn && <ambientLight intensity={0.08} color="#33415f" />}
 
       {/* neon wall strips (arcade) */}
       {cfg.neon && (

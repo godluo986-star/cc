@@ -638,11 +638,19 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     sp?.broadcast('voice_roster', { ids: sp.voiceRoster() });
   },
 
+  screen_share(world, s, d: C2SPayload<'screen_share'>) {
+    if (!s.buckets.generic.take()) return;
+    s.screenOn = d.on;
+    const sp = space(world, s);
+    sp?.broadcast('screen_roster', { ids: sp.screenRoster() });
+  },
+
   rtc(world, s, d: C2SPayload<'rtc'>) {
     if (!s.buckets.rtc.take()) return;
     const target = world.sessionsById.get(d.to);
     if (!target || target.spaceKey !== s.spaceKey) return;
-    if (!s.voiceOn || !target.voiceOn) return;
+    // a link is legitimate when either end is publishing media (mic or screen)
+    if (!(s.voiceOn || s.screenOn) && !(target.voiceOn || target.screenOn)) return;
     send(target, 'rtc', { from: s.id, kind: d.kind, payload: d.payload });
   },
 

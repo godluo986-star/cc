@@ -56,6 +56,7 @@ interface WorldStore {
   lo: Record<string, LightsOutState>;
   env: WorldEnv;
   voiceRoster: number[];
+  screenRoster: number[];
   roomDir: RoomDirectoryEntry[];
   applyInit: (init: SpaceInit) => void;
   addPlayer: (p: PublicProfile) => void;
@@ -73,6 +74,7 @@ interface WorldStore {
   setLo: (l: LightsOutState) => void;
   setEnv: (e: WorldEnv) => void;
   setVoiceRoster: (ids: number[]) => void;
+  setScreenRoster: (ids: number[]) => void;
   setRoomDir: (r: RoomDirectoryEntry[]) => void;
 }
 export const useWorld = create<WorldStore>((set) => ({
@@ -90,6 +92,7 @@ export const useWorld = create<WorldStore>((set) => ({
   lo: {},
   env: { timeOfDay: 0.35, at: Date.now(), dayLengthSec: 1200, weather: 'clear' },
   voiceRoster: [],
+  screenRoster: [],
   roomDir: [],
   applyInit: (init) => set({
     spaceKey: init.spaceKey,
@@ -105,6 +108,7 @@ export const useWorld = create<WorldStore>((set) => ({
     ttt: Object.fromEntries(init.games.tictactoe.map((t) => [t.machineId, t])),
     lo: Object.fromEntries(init.games.lightsout.map((l) => [l.machineId, l])),
     voiceRoster: init.voiceRoster,
+    screenRoster: init.screenRoster,
   }),
   addPlayer: (p) => set((s) => ({ roster: [...s.roster.filter((r) => r.id !== p.id), p] })),
   removePlayer: (id) => set((s) => ({ roster: s.roster.filter((r) => r.id !== id) })),
@@ -128,6 +132,7 @@ export const useWorld = create<WorldStore>((set) => ({
   setLo: (l) => set((s) => ({ lo: { ...s.lo, [l.machineId]: l } })),
   setEnv: (env) => set({ env }),
   setVoiceRoster: (voiceRoster) => set({ voiceRoster }),
+  setScreenRoster: (screenRoster) => set({ screenRoster }),
   setRoomDir: (roomDir) => set({ roomDir }),
 }));
 
@@ -282,20 +287,29 @@ interface VoiceStore {
   micLevel: number;
   error: string | null;
   peers: number[];
+  screenOn: boolean;
+  /** Bumped whenever a remote screen stream arrives/leaves (re-render hint). */
+  screenVersion: number;
   setEnabled: (v: boolean) => void;
   setMicLevel: (v: number) => void;
   setError: (e: string | null) => void;
   setPeers: (p: number[]) => void;
+  setScreenOn: (v: boolean) => void;
+  bumpScreens: () => void;
 }
 export const useVoice = create<VoiceStore>((set) => ({
   enabled: false,
   micLevel: 0,
   error: null,
   peers: [],
+  screenOn: false,
+  screenVersion: 0,
   setEnabled: (enabled) => set({ enabled }),
   setMicLevel: (micLevel) => set({ micLevel }),
   setError: (error) => set({ error }),
   setPeers: (peers) => set({ peers }),
+  setScreenOn: (screenOn) => set({ screenOn }),
+  bumpScreens: () => set((s) => ({ screenVersion: s.screenVersion + 1 })),
 }));
 
 export function inventoryCount(inv: InventoryEntry[], id: string): number {

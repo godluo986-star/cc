@@ -14,6 +14,7 @@ export interface Session {
   seq: number;
   seatId: string | null;
   voiceOn: boolean;
+  screenOn: boolean;
   alive: boolean;
   closed: boolean;
   lastInputAt: number;
@@ -40,6 +41,7 @@ export function createSession(ws: WebSocket, user: AuthUser): Session {
     st: 0, seq: 0,
     seatId: null,
     voiceOn: false,
+    screenOn: false,
     alive: true,
     closed: false,
     lastInputAt: Date.now(),
