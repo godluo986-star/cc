@@ -195,6 +195,8 @@ export interface SpaceInit {
     mahjong: import('./mahjong').MahjongView[];
   };
   voiceRoster: number[];
+  /** 全服"全世界语音"广播者(可能不在本空间)。 */
+  voiceWorldRoster: number[];
   screenRoster: number[];
 }
 

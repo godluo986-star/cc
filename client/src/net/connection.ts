@@ -224,9 +224,11 @@ class Connection {
       case 'env':
         world.setEnv(d as S2CMap['env']);
         break;
-      case 'voice_roster':
-        world.setVoiceRoster((d as S2CMap['voice_roster']).ids);
+      case 'voice_roster': {
+        const vr = d as S2CMap['voice_roster'];
+        world.setVoiceRoster(vr.ids, vr.world);
         break;
+      }
       case 'screen_roster':
         world.setScreenRoster((d as S2CMap['screen_roster']).ids);
         break;

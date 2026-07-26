@@ -10,6 +10,8 @@
 import { chromium } from 'playwright';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const OUT = process.env.OUT_DIR ?? '.';
+// 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从广场出生点开始
+const RUN = `${Date.now() % 1000000}`;
 const errors = [];
 let failures = 0;
 const check = (label, ok) => { console.log(`${ok ? '✓' : '✗ FAIL'} ${label}`); if (!ok) failures++; };
@@ -29,7 +31,14 @@ async function newPlayer(browser, name) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`[${name}] ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`[${name}] PAGEERROR ${e.message}`));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await page.evaluate((t) => localStorage.setItem('np_token', t), token);
+  await page.evaluate((t) => {
+    localStorage.setItem('np_token', t);
+    // 软渲染跑功能冒烟:锁最低画质,否则 swiftshader 只有 ~1 FPS,走路都走不动
+    localStorage.setItem('np_settings', JSON.stringify({
+      quality: 'low', shadows: false, postfx: false, reflections: false, particles: false, clouds: false,
+      masterVolume: 0, musicVolume: 0, sfxVolume: 0, voiceVolume: 0, mediaVolume: 0, invertY: false,
+    }));
+  }, token);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 40000, polling: 500 });
   await page.waitForTimeout(800);
@@ -96,13 +105,13 @@ const browser = await chromium.launch({
   args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'],
 });
 
-const p1 = await newPlayer(browser, 'smoke_p1');
+const p1 = await newPlayer(browser, `smoke_p1_${RUN}`);
 check('WebGL 上下文', await p1.evaluate(() => {
   const c = document.querySelector('canvas');
   return !!(c?.getContext('webgl2') || c?.getContext('webgl'));
 }));
 
-const p2 = await newPlayer(browser, 'smoke_p2');
+const p2 = await newPlayer(browser, `smoke_p2_${RUN}`);
 await p2.waitForTimeout(1200);
 await p2.keyboard.press('Enter');
 await p2.keyboard.type('团子二号来啦!');
@@ -113,13 +122,14 @@ check('跨端聊天同步', await p1.evaluate(() =>
 ));
 await p1.screenshot({ path: `${OUT}/smoke-plaza.png` });
 
-// ── 两人进咖啡馆 ──
+// ── 两人进咖啡馆(沿门前铺装带正南直进,避免蹭到咖啡馆东北墙角)──
 for (const p of [p1, p2]) {
   await walkTo(p, -12, 4);
   await walkTo(p, -20, -2);
-  await walkTo(p, -28, -10);
-  await walkTo(p, -29.8, -15.3, 15000);
-  await interactWhenPrompt(p, '咖啡馆', -30, -15.6);
+  await walkTo(p, -26, -8);
+  await walkTo(p, -30, -12.5, 20000);
+  await walkTo(p, -29.9, -15.2, 15000);
+  await interactWhenPrompt(p, '咖啡馆', -30, -15.5);
 }
 check('两人都进入咖啡馆', (await state(p1)).space === 'cafe' && (await state(p2)).space === 'cafe');
 

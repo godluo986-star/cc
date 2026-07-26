@@ -14,6 +14,8 @@ export interface Session {
   seq: number;
   seatId: string | null;
   voiceOn: boolean;
+  /** 'near' = 就近语音(HRTF 衰减);'world' = 全世界语音(全服可闻)。 */
+  voiceScope: 'near' | 'world';
   screenOn: boolean;
   alive: boolean;
   closed: boolean;
@@ -41,6 +43,7 @@ export function createSession(ws: WebSocket, user: AuthUser): Session {
     st: 0, seq: 0,
     seatId: null,
     voiceOn: false,
+    voiceScope: 'near',
     screenOn: false,
     alive: true,
     closed: false,

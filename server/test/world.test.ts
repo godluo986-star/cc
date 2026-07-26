@@ -367,6 +367,51 @@ describe('screen sharing + rtc relay', () => {
   });
 });
 
+describe('world-wide voice (全世界语音)', () => {
+  it('propagates the world roster to every space and relays cross-space signaling', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    const b = mkSession('bob');
+    world.join(a.session, SPACE.PLAZA);
+    world.join(b.session, SPACE.CAFE);
+
+    // b 开全世界语音:另一空间的 a 也要收到 world 名单
+    handlers.voice_state(world, b.session, { on: true, scope: 'world' });
+    let roster = lastOf(a.ws, 'voice_roster');
+    expect(roster?.d.world).toContain(b.session.id);
+    expect(roster?.d.ids).not.toContain(b.session.id); // 不在同一空间的 ids 里
+
+    // 听者(无任何媒体)可以跨空间向全服广播者发信令
+    handlers.rtc(world, a.session, { to: b.session.id, kind: 'offer', payload: '{}' });
+    expect(lastOf(b.ws, 'rtc')?.d.from).toBe(a.session.id);
+    // 广播者也能回信令
+    handlers.rtc(world, b.session, { to: a.session.id, kind: 'answer', payload: '{}' });
+    expect(lastOf(a.ws, 'rtc')?.d.from).toBe(b.session.id);
+
+    // 切回就近语音:world 名单清空,跨空间信令重新被拒
+    handlers.voice_state(world, b.session, { on: true, scope: 'near' });
+    roster = lastOf(a.ws, 'voice_roster');
+    expect(roster?.d.world).toHaveLength(0);
+    const relayedBefore = b.ws.sent.filter((m) => m.t === 'rtc').length;
+    handlers.rtc(world, a.session, { to: b.session.id, kind: 'offer', payload: '{}' });
+    expect(b.ws.sent.filter((m) => m.t === 'rtc').length).toBe(relayedBefore);
+  });
+
+  it('clears the world roster everywhere when the broadcaster leaves', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    const b = mkSession('bob');
+    world.join(a.session, SPACE.PLAZA);
+    world.join(b.session, SPACE.CAFE);
+    handlers.voice_state(world, b.session, { on: true, scope: 'world' });
+    expect(lastOf(a.ws, 'voice_roster')?.d.world).toContain(b.session.id);
+
+    world.leaveCurrent(b.session);
+    expect(lastOf(a.ws, 'voice_roster')?.d.world).toHaveLength(0);
+    expect(b.session.voiceScope).toBe('near'); // 掉线/离开后重置
+  });
+});
+
 describe('economy', () => {
   it('vends items with credit deduction', () => {
     const { world, mkSession, db } = testRig();

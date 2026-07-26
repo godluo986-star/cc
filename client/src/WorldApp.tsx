@@ -10,10 +10,10 @@ import { connection } from './net/connection';
 // Debug/automation handle (used by the headless smoke test).
 declare global {
   interface Window {
-    __nx?: { hot: typeof hot; connection: typeof connection; world: typeof useWorld; ui: typeof useUI };
+    __nx?: { hot: typeof hot; connection: typeof connection; world: typeof useWorld; ui: typeof useUI; voice: typeof voice };
   }
 }
-if (typeof window !== 'undefined') window.__nx = { hot, connection, world: useWorld, ui: useUI };
+if (typeof window !== 'undefined') window.__nx = { hot, connection, world: useWorld, ui: useUI, voice };
 
 export default function WorldApp() {
   const phase = useSession((s) => s.phase);

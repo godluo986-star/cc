@@ -149,8 +149,9 @@ export default function LocalPlayer() {
       // Horizontal velocity, camera-relative
       const yaw = hot.camera.yaw;
       const targetSpeed = moving ? (running ? RUN_SPEED : WALK_SPEED) : 0;
-      const dirX = -(Math.sin(yaw) * iz) - Math.cos(yaw) * ix;
-      const dirZ = -(Math.cos(yaw) * iz) + Math.sin(yaw) * ix;
+      // 前向 = 相机指向角色的方向 (-sin,-cos);屏幕右 = 前向×上 = (cos,-sin)
+      const dirX = -(Math.sin(yaw) * iz) + Math.cos(yaw) * ix;
+      const dirZ = -(Math.cos(yaw) * iz) - Math.sin(yaw) * ix;
       const dl = Math.hypot(dirX, dirZ) || 1;
       const accel = l.grounded ? 26 : 9;
       vel.current.x += ((dirX / dl) * targetSpeed - vel.current.x) * Math.min(1, accel * dt);

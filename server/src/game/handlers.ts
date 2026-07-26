@@ -707,9 +707,17 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
 
   voice_state(world, s, d: C2SPayload<'voice_state'>) {
     if (!s.buckets.generic.take()) return;
+    const wasWorld = s.voiceOn && s.voiceScope === 'world';
     s.voiceOn = d.on;
-    const sp = space(world, s);
-    sp?.broadcast('voice_roster', { ids: sp.voiceRoster() });
+    s.voiceScope = d.scope ?? 'near';
+    const isWorld = s.voiceOn && s.voiceScope === 'world';
+    if (wasWorld || isWorld) {
+      // 世界语音名单变化影响所有空间
+      world.broadcastVoiceRosters();
+    } else {
+      const sp = space(world, s);
+      if (sp) sp.broadcast('voice_roster', world.voicePayload(sp));
+    }
   },
 
   screen_share(world, s, d: C2SPayload<'screen_share'>) {
@@ -722,9 +730,12 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   rtc(world, s, d: C2SPayload<'rtc'>) {
     if (!s.buckets.rtc.take()) return;
     const target = world.sessionsById.get(d.to);
-    if (!target || target.spaceKey !== s.spaceKey) return;
+    if (!target) return;
+    // 全世界语音:任一端是全服广播者时,允许跨空间建链
+    const worldLink = (s.voiceOn && s.voiceScope === 'world') || (target.voiceOn && target.voiceScope === 'world');
+    if (!worldLink && target.spaceKey !== s.spaceKey) return;
     // a link is legitimate when either end is publishing media (mic or screen)
-    if (!(s.voiceOn || s.screenOn) && !(target.voiceOn || target.screenOn)) return;
+    if (!worldLink && !(s.voiceOn || s.screenOn) && !(target.voiceOn || target.screenOn)) return;
     send(target, 'rtc', { from: s.id, kind: d.kind, payload: d.payload });
   },
 

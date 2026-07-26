@@ -59,6 +59,8 @@ interface WorldStore {
   mj: Record<string, MahjongView>;
   env: WorldEnv;
   voiceRoster: number[];
+  /** 全服"全世界语音"广播者(可能在别的空间)。 */
+  voiceWorldRoster: number[];
   screenRoster: number[];
   roomDir: RoomDirectoryEntry[];
   applyInit: (init: SpaceInit) => void;
@@ -78,7 +80,7 @@ interface WorldStore {
   setXq: (t: XiangqiState) => void;
   setMj: (v: MahjongView) => void;
   setEnv: (e: WorldEnv) => void;
-  setVoiceRoster: (ids: number[]) => void;
+  setVoiceRoster: (ids: number[], world: number[]) => void;
   setScreenRoster: (ids: number[]) => void;
   setRoomDir: (r: RoomDirectoryEntry[]) => void;
 }
@@ -99,6 +101,7 @@ export const useWorld = create<WorldStore>((set) => ({
   mj: {},
   env: { timeOfDay: 0.35, at: Date.now(), dayLengthSec: 1200, weather: 'clear' },
   voiceRoster: [],
+  voiceWorldRoster: [],
   screenRoster: [],
   roomDir: [],
   applyInit: (init) => set({
@@ -117,6 +120,7 @@ export const useWorld = create<WorldStore>((set) => ({
     xq: Object.fromEntries(init.games.xiangqi.map((t) => [t.tableId, t])),
     mj: Object.fromEntries(init.games.mahjong.map((v) => [v.pub.tableId, v])),
     voiceRoster: init.voiceRoster,
+    voiceWorldRoster: init.voiceWorldRoster,
     screenRoster: init.screenRoster,
   }),
   addPlayer: (p) => set((s) => ({ roster: [...s.roster.filter((r) => r.id !== p.id), p] })),
@@ -142,7 +146,7 @@ export const useWorld = create<WorldStore>((set) => ({
   setXq: (t) => set((s) => ({ xq: { ...s.xq, [t.tableId]: t } })),
   setMj: (v) => set((s) => ({ mj: { ...s.mj, [v.pub.tableId]: v } })),
   setEnv: (env) => set({ env }),
-  setVoiceRoster: (voiceRoster) => set({ voiceRoster }),
+  setVoiceRoster: (voiceRoster, voiceWorldRoster) => set({ voiceRoster, voiceWorldRoster }),
   setScreenRoster: (screenRoster) => set({ screenRoster }),
   setRoomDir: (roomDir) => set({ roomDir }),
 }));
@@ -297,6 +301,8 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 // ── Voice ───────────────────────────────────────────────────────────────────
 interface VoiceStore {
   enabled: boolean;
+  /** 'near' = 就近语音;'world' = 全世界语音(全服可闻)。 */
+  scope: 'near' | 'world';
   micLevel: number;
   error: string | null;
   peers: number[];
@@ -304,6 +310,7 @@ interface VoiceStore {
   /** Bumped whenever a remote screen stream arrives/leaves (re-render hint). */
   screenVersion: number;
   setEnabled: (v: boolean) => void;
+  setScope: (s: 'near' | 'world') => void;
   setMicLevel: (v: number) => void;
   setError: (e: string | null) => void;
   setPeers: (p: number[]) => void;
@@ -312,12 +319,14 @@ interface VoiceStore {
 }
 export const useVoice = create<VoiceStore>((set) => ({
   enabled: false,
+  scope: 'near',
   micLevel: 0,
   error: null,
   peers: [],
   screenOn: false,
   screenVersion: 0,
   setEnabled: (enabled) => set({ enabled }),
+  setScope: (scope) => set({ scope }),
   setMicLevel: (micLevel) => set({ micLevel }),
   setError: (error) => set({ error }),
   setPeers: (peers) => set({ peers }),

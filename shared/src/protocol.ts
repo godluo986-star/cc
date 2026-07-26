@@ -84,7 +84,7 @@ export const c2s = {
   unlock_furniture: z.object({ type: z.string().max(32) }),
   use_item: z.object({ itemId: z.string().max(32) }),
   stash: z.object({ objectId: z.number().int(), itemId: z.string().max(32), dir: z.enum(['toStash', 'toInventory']) }),
-  voice_state: z.object({ on: z.boolean() }),
+  voice_state: z.object({ on: z.boolean(), scope: z.enum(['near', 'world']).optional() }),
   screen_share: z.object({ on: z.boolean() }),
   rtc: z.object({
     to: z.number().int(),
@@ -124,7 +124,8 @@ export interface S2CMap {
   room_data: RoomData;
   room_dir: { rooms: RoomDirectoryEntry[] };
   env: WorldEnv;
-  voice_roster: { ids: number[] };
+  /** ids: 本空间开麦的人;world: 全服"全世界语音"广播者(跨空间可闻)。 */
+  voice_roster: { ids: number[]; world: number[] };
   screen_roster: { ids: number[] };
   rtc: { from: number; kind: 'offer' | 'answer' | 'ice'; payload: string };
   correction: { p: [number, number, number] };

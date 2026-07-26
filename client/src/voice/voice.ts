@@ -1,10 +1,13 @@
 /**
  * P2P media mesh (server relays signaling only), carrying:
- *  - proximity voice: mic audio spatialized through WebAudio HRTF panners
+ *  - proximity voice (就近语音): mic audio spatialized through WebAudio HRTF
+ *    panners, links form between peers in range
+ *  - world voice (全世界语音): the speaker is heard by everyone online in any
+ *    space at flat volume — listeners initiate recvonly links from the
+ *    server-wide world roster, so the speaker needs no knowledge of them
  *  - screen sharing: 720p@30fps captures (~2.5 Mbps sender cap)
  *    shown on floating displays above the sharing dango
- * Links form between peers in range whenever either side publishes media,
- * using the standard "perfect negotiation" pattern for renegotiation.
+ * All links use the standard "perfect negotiation" pattern for renegotiation.
  */
 import { VOICE_RANGE, VOICE_CONNECT_RANGE } from '@nexuspark/shared';
 import { connection } from '../net/connection';
@@ -43,7 +46,8 @@ class VoiceManager {
     this.unsubs.push(connection.on('rtc', (d) => this.onSignal(d as { from: number; kind: string; payload: string })));
     this.unsubs.push(
       useWorld.subscribe((s, prev) => {
-        if (s.voiceRoster !== prev.voiceRoster || s.screenRoster !== prev.screenRoster || s.spaceKey !== prev.spaceKey) {
+        if (s.voiceRoster !== prev.voiceRoster || s.voiceWorldRoster !== prev.voiceWorldRoster
+          || s.screenRoster !== prev.screenRoster || s.spaceKey !== prev.spaceKey) {
           this.reconcile();
         }
       })
@@ -81,7 +85,7 @@ class VoiceManager {
     }
     vs.setError(null);
     vs.setEnabled(true);
-    connection.send('voice_state', { on: true });
+    connection.send('voice_state', { on: true, scope: useVoice.getState().scope });
     // attach mic to existing links
     const track = this.micStream.getAudioTracks()[0];
     for (const peer of this.peers.values()) {
@@ -110,6 +114,32 @@ class VoiceManager {
   toggle(): void {
     if (useVoice.getState().enabled) this.disable();
     else void this.enable();
+  }
+
+  /** 就近语音开关:已在别的档位时切换档位而不断麦。 */
+  toggleNear(): void {
+    const vs = useVoice.getState();
+    if (vs.enabled && vs.scope === 'near') { this.disable(); return; }
+    vs.setScope('near');
+    if (vs.enabled) {
+      connection.send('voice_state', { on: true, scope: 'near' });
+      this.reconcile();
+    } else {
+      void this.enable();
+    }
+  }
+
+  /** 全世界语音开关:全服所有人(任何空间)都能听到。 */
+  toggleWorld(): void {
+    const vs = useVoice.getState();
+    if (vs.enabled && vs.scope === 'world') { this.disable(); return; }
+    vs.setScope('world');
+    if (vs.enabled) {
+      connection.send('voice_state', { on: true, scope: 'world' });
+      this.reconcile();
+    } else {
+      void this.enable();
+    }
   }
 
   // ── Screen sharing ────────────────────────────────────────────────────────
@@ -178,7 +208,7 @@ class VoiceManager {
 
   // ── Mesh management ───────────────────────────────────────────────────────
   private desiredPeers(): number[] {
-    const { voiceRoster, screenRoster } = useWorld.getState();
+    const { voiceRoster, screenRoster, voiceWorldRoster } = useWorld.getState();
     const vs = useVoice.getState();
     const iPublish = (vs.enabled && !!this.micStream) || (vs.screenOn && !!this.screenStream);
     const out: number[] = [];
@@ -200,6 +230,16 @@ class VoiceManager {
         const d = Math.hypot(e.x - hot.local.x, e.z - hot.local.z);
         const connected = this.peers.has(e.id);
         if (d < (connected ? VOICE_CONNECT_RANGE + 4 : VOICE_CONNECT_RANGE)) out.push(e.id);
+      }
+    }
+    // 全世界语音:听者主动与全服广播者建链,不受空间/距离限制
+    for (const id of voiceWorldRoster) {
+      if (id !== hot.selfId && !out.includes(id)) out.push(id);
+    }
+    // 我自己是全服广播者时,保住所有已建立的链(听者可能来自任何空间)
+    if (iPublish && vs.enabled && vs.scope === 'world') {
+      for (const id of this.peers.keys()) {
+        if (!out.includes(id)) out.push(id);
       }
     }
     return out;
@@ -235,18 +275,26 @@ class VoiceManager {
       setV(l.forwardX, -Math.sin(yaw)); setV(l.forwardY, 0); setV(l.forwardZ, -Math.cos(yaw));
       setV(l.upX, 0); setV(l.upY, 1); setV(l.upZ, 0);
     }
+    const worldIds = useWorld.getState().voiceWorldRoster;
     for (const [id, peer] of this.peers) {
       const e = hot.players.get(id);
-      if (e && peer.panner) {
-        setV(peer.panner.positionX, e.x);
-        setV(peer.panner.positionY, e.y + 0.9);
-        setV(peer.panner.positionZ, e.z);
+      if (peer.panner) {
+        if (worldIds.includes(id)) {
+          // 全世界语音:声源钉在听者位置 → 无距离衰减、无方位,像全服喇叭
+          setV(peer.panner.positionX, hot.local.x);
+          setV(peer.panner.positionY, hot.local.y + 0.9);
+          setV(peer.panner.positionZ, hot.local.z);
+        } else if (e) {
+          setV(peer.panner.positionX, e.x);
+          setV(peer.panner.positionY, e.y + 0.9);
+          setV(peer.panner.positionZ, e.z);
+        }
       }
-      if (e && peer.analyser && peer.levelData) {
+      if (peer.analyser && peer.levelData) {
         peer.analyser.getByteFrequencyData(peer.levelData);
         let sum = 0;
         for (let i = 2; i < 40; i++) sum += peer.levelData[i];
-        e.voiceLevel = Math.min(1, sum / 38 / 110);
+        if (e) e.voiceLevel = Math.min(1, sum / 38 / 110);
       }
     }
   }
@@ -265,6 +313,9 @@ class VoiceManager {
     const micTrack = this.micStream?.getAudioTracks()[0];
     if (micTrack && useVoice.getState().enabled) {
       peer.audioSender = pc.addTrack(micTrack, this.micStream!);
+    } else if (useWorld.getState().voiceWorldRoster.includes(id)) {
+      // 纯听众连全服广播者:没有本地轨道时要显式声明收音意图,否则不会触发协商
+      try { pc.addTransceiver('audio', { direction: 'recvonly' }); } catch { /* unsupported */ }
     }
     this.attachScreenTo(peer);
 

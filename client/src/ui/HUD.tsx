@@ -110,6 +110,7 @@ function DialogueBox() {
 function Roster() {
   const roster = useWorld((s) => s.roster);
   const voiceRoster = useWorld((s) => s.voiceRoster);
+  const worldVoice = useWorld((s) => s.voiceWorldRoster);
   const label = useWorld((s) => s.label);
   return (
     <div className="roster panel">
@@ -118,7 +119,7 @@ function Roster() {
         <div key={p.id} className="roster-line">
           <span className={`roster-dot ${p.isNpc ? 'npc' : ''}`} />
           <span style={{ flex: 1 }}>{p.username}{p.id === hot.selfId ? '(我)' : ''}</span>
-          {voiceRoster.includes(p.id) && <span>🎙</span>}
+          {worldVoice.includes(p.id) ? <span>📢</span> : voiceRoster.includes(p.id) && <span>🎙</span>}
         </div>
       ))}
     </div>
@@ -141,6 +142,7 @@ export default function HUD() {
   const editMode = useUI((s) => s.editMode);
   const ui = useUI.getState();
   const voiceOn = useVoice((s) => s.enabled);
+  const voiceScope = useVoice((s) => s.scope);
   const micLevel = useVoice((s) => s.micLevel);
   const voiceErr = useVoice((s) => s.error);
   const screenOn = useVoice((s) => s.screenOn);
@@ -232,11 +234,18 @@ export default function HUD() {
         )}
         <button className="btn" title="表情(1-5)" onClick={() => setEmotesOpen(!emotesOpen)}>🎭</button>
         <button
-          className={`btn ${voiceOn ? 'on' : ''} ${voiceOn && micLevel > 0.14 ? 'talking' : ''}`}
-          title="就近语音"
-          onClick={() => voice.toggle()}
+          className={`btn ${voiceOn && voiceScope === 'near' ? 'on' : ''} ${voiceOn && voiceScope === 'near' && micLevel > 0.14 ? 'talking' : ''}`}
+          title="就近语音(离得越近听得越清)"
+          onClick={() => voice.toggleNear()}
         >
-          {voiceOn ? '🎙' : '🔇'}
+          {voiceOn && voiceScope === 'near' ? '🎙' : '🔇'}
+        </button>
+        <button
+          className={`btn ${voiceOn && voiceScope === 'world' ? 'on' : ''} ${voiceOn && voiceScope === 'world' && micLevel > 0.14 ? 'talking' : ''}`}
+          title="全世界语音(全服所有空间都能听到你)"
+          onClick={() => voice.toggleWorld()}
+        >
+          📢
         </button>
         <button
           className={`btn ${screenOn ? 'on' : ''}`}

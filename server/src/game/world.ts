@@ -112,7 +112,7 @@ export class World {
     space.sessions.add(session);
     space.emptySince = 0;
     space.broadcast('player_join', { profile: profileOf(session) }, session);
-    space.broadcast('voice_roster', { ids: space.voiceRoster() });
+    space.broadcast('voice_roster', this.voicePayload(space));
     space.broadcast('screen_roster', { ids: space.screenRoster() });
     this.systemChat(space, `${session.user.username} 来了`);
     return this.buildSpaceInit(space, session);
@@ -124,13 +124,16 @@ export class World {
     this.releaseSeat(session, space);
     space.dropFromGames(session);
     space.sessions.delete(session);
+    const wasWorldVoice = session.voiceOn && session.voiceScope === 'world';
     session.voiceOn = false;
+    session.voiceScope = 'near';
     session.screenOn = false;
     space.broadcast('player_leave', { id: session.id, reason });
-    space.broadcast('voice_roster', { ids: space.voiceRoster() });
+    space.broadcast('voice_roster', this.voicePayload(space));
     space.broadcast('screen_roster', { ids: space.screenRoster() });
     this.systemChat(space, `${session.user.username} 离开了`);
     if (space.sessions.size === 0) space.emptySince = Date.now();
+    if (wasWorldVoice) this.broadcastVoiceRosters();
   }
 
   switchSpace(session: Session, target: string, spawnOverride?: [number, number, number, number]): SpaceInit | null {
@@ -238,8 +241,27 @@ export class World {
         mahjong: [...space.mj.values()].map((t) => t.viewFor(session)),
       },
       voiceRoster: space.voiceRoster(),
+      voiceWorldRoster: this.worldVoiceIds(),
       screenRoster: space.screenRoster(),
     };
+  }
+
+  /** 全服"全世界语音"广播者(任何空间的人都应听到并与其建链)。 */
+  worldVoiceIds(): number[] {
+    return [...this.sessionsById.values()]
+      .filter((s) => s.voiceOn && s.voiceScope === 'world')
+      .map((s) => s.id);
+  }
+
+  voicePayload(space: Space): { ids: number[]; world: number[] } {
+    return { ids: space.voiceRoster(), world: this.worldVoiceIds() };
+  }
+
+  /** 世界语音名单变化时,通知所有有人的空间。 */
+  broadcastVoiceRosters(): void {
+    for (const space of this.spaces.values()) {
+      if (space.sessions.size > 0) space.broadcast('voice_roster', this.voicePayload(space));
+    }
   }
 
   buildSelfState(session: Session): SelfState {
