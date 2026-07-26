@@ -48,7 +48,7 @@ export function SettingsPanel() {
   );
 }
 
-const BODY_COLORS = ['#f5e6d3', '#f2c4cd', '#c4d9f2', '#c8ecc9', '#f5e28a', '#e0c4f2', '#f5c09a', '#ffffff', '#d9b8a3', '#b8d8d0'];
+const BODY_COLORS = ['#b7cf8f', '#8fc7c4', '#f3c3cc', '#a08a78', '#f5eee0', '#cbb8d9', '#f0e3ae', '#f2d3b8', '#dce8d2'];
 const SCARF_COLORS = ['#c05555', '#3e5f8a', '#3f7d44', '#8e44ad', '#d4a017', '#e8734a', '#2b2f36', '#f2f2f2'];
 const SPROUT_COLORS = ['#5da55f', '#3f7d44', '#7fbf6f', '#d4a017', '#b03a48', '#8e44ad'];
 const BLUSH_COLORS = ['#f2a5b5', '#f5b8c4', '#e88ba0', '#f2c4cd', '#e8a58a'];
@@ -123,7 +123,7 @@ export function HelpPanel() {
       <div className="dim" style={{ fontSize: 12, lineHeight: 1.6 }}>
         可以试试:去电影院点部片一起看 · 咖啡馆下象棋、打福州麻将 · 游戏厅挑战井字棋 ·
         给自己房间的电视放个网站 · 点 ✏️ 重新装修房间 · 开 🎙 就近语音(离得越近听得越清)·
-        开 🖥️ 分享屏幕,画面会浮在你的团子头顶(低码率 640×360)——五只团子排排坐各自开屏,大家围观。
+        开 🖥️ 分享屏幕,画面会浮在你的团子头顶(720p·30帧)——五只团子排排坐各自开屏,大家围观。
       </div>
     </div>
   );

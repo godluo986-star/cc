@@ -1,7 +1,8 @@
 /**
- * Dango avatar animation: squishy round dumpling characters. Every pose is
- * computed per-frame (squash & stretch, waddle, hop) and joints ease toward
- * it — no keyframe assets.
+ * Dango avatar animation: squishy steamed-bun dumpling characters. Every pose
+ * is computed per-frame (squash & stretch, waddle, hop) and joints ease toward
+ * it — no keyframe assets. 脚在新造型里不可见(空 group), 移动手感以身体
+ * squash/rootY 的 Q 弹蹦跳为主, 脚部 shuffle 仅保留很弱的残量。
  */
 import type * as THREE from 'three';
 import { Anim } from '@nexuspark/shared';
@@ -64,11 +65,11 @@ function computePose(anim: Anim, phase: number, speedNorm: number, t: number): P
       const amp = 0.6 + 0.4 * Math.min(1, speedNorm * 2);
       const hop = Math.abs(s);
       p.rootY = hop * 0.16 * amp;
-      p.squash = 1 + c * 0.1 * amp;
+      p.squash = 1 + c * 0.12 * amp;                    // 脚不可见 → squash 更 Q 弹
       p.bodyRx = s * 0.07 * amp;                        // rock forward over each hop
       p.bodyRz = s * 0.08 * amp;                        // waddle
-      p.footLz = s * 0.13; p.footRz = -s * 0.13;
-      p.footLift = hop * 0.08;
+      p.footLz = s * 0.04; p.footRz = -s * 0.04;        // 弱化的残留 shuffle
+      p.footLift = hop * 0.02;
       p.armL = [0.25 + s * 0.4, 0.45]; p.armR = [0.25 - s * 0.4, -0.45];
       p.faceRz = -s * 0.05 * amp;
       p.mouthScale = 1.1;
@@ -77,11 +78,11 @@ function computePose(anim: Anim, phase: number, speedNorm: number, t: number): P
     case Anim.Run: {
       const hop = Math.abs(s);
       p.rootY = hop * 0.26;                             // big happy bounds
-      p.squash = 1 + c * 0.16;
+      p.squash = 1 + c * 0.18;                          // 蹦跳主要靠身体拉伸
       p.bodyRx = 0.2 + s * 0.05;                        // eager forward lean
       p.bodyRz = s * 0.07;
-      p.footLz = s * 0.18; p.footRz = -s * 0.18;
-      p.footLift = hop * 0.12;
+      p.footLz = s * 0.05; p.footRz = -s * 0.05;
+      p.footLift = hop * 0.03;
       p.armL = [1.2 + s * 0.35, 0.75]; p.armR = [1.2 - s * 0.35, -0.75]; // arms up, wheee
       p.mouthScale = 1.3;
       break;
@@ -89,16 +90,16 @@ function computePose(anim: Anim, phase: number, speedNorm: number, t: number): P
     case Anim.Jump: {
       p.squash = 1.16;                                  // full stretch
       p.armL = [1.6, 0.9]; p.armR = [1.6, -0.9];
-      p.footLz = -0.06; p.footRz = -0.06;
-      p.footLift = 0.1;
+      p.footLz = -0.02; p.footRz = -0.02;
+      p.footLift = 0.02;
       p.mouthScale = 1.35;
       break;
     }
     case Anim.Sit: {
       p.squash = 0.9;                                   // settled blob
       p.rootY = 0.0;
-      p.footLz = 0.14; p.footRz = 0.14;                 // feet out front
-      p.footLift = 0.12;
+      p.footLz = 0.04; p.footRz = 0.04;                 // (feet hidden) faint slide
+      p.footLift = 0;
       p.armL = [0.25, 0.35]; p.armR = [0.25, -0.35];
       break;
     }
@@ -118,7 +119,7 @@ function computePose(anim: Anim, phase: number, speedNorm: number, t: number): P
       p.squash = 1 + Math.cos(t * 10.4) * 0.05;
       p.bodyRz = b * 0.22;
       p.armL = [1.4 + b * 0.7, 0.8]; p.armR = [1.4 - b * 0.7, -0.8];
-      p.footLz = b * 0.08; p.footRz = -b * 0.08;
+      p.footLz = b * 0.03; p.footRz = -b * 0.03;
       p.faceRz = b * 0.14;
       p.mouthScale = 1.3;
       break;
@@ -181,10 +182,12 @@ export function applyPose(
   refs.armL.rotation.z = ease(refs.armL.rotation.z, p.armL[1], k);
   refs.armR.rotation.x = ease(refs.armR.rotation.x, -p.armR[0], k);
   refs.armR.rotation.z = ease(refs.armR.rotation.z, p.armR[1], k);
-  refs.footL.position.z = ease(refs.footL.position.z, 0.12 + p.footLz, k);
-  refs.footR.position.z = ease(refs.footR.position.z, 0.12 + p.footRz, k);
-  refs.footL.position.y = ease(refs.footL.position.y, 0.05 + (p.footLz > 0.02 ? p.footLift : 0), k);
-  refs.footR.position.y = ease(refs.footR.position.y, 0.05 + (p.footRz > 0.02 ? p.footLift : 0), k);
+  // feet are hidden empty groups on the bun-shaped dango; keep easing so the
+  // ref contract (and any future visible feet) still works
+  refs.footL.position.z = ease(refs.footL.position.z, 0.1 + p.footLz, k);
+  refs.footR.position.z = ease(refs.footR.position.z, 0.1 + p.footRz, k);
+  refs.footL.position.y = ease(refs.footL.position.y, 0.02 + (p.footLz > 0.01 ? p.footLift : 0), k);
+  refs.footR.position.y = ease(refs.footR.position.y, 0.02 + (p.footRz > 0.01 ? p.footLift : 0), k);
   const ms = ease(refs.mouth.scale.y, p.mouthScale, k);
   refs.mouth.scale.setY(ms);
 
@@ -193,7 +196,7 @@ export function applyPose(
   if (now > st.blinkAt) {
     const sinceBlink = now - st.blinkAt;
     if (sinceBlink < 130) {
-      refs.eyes.scale.y = 0.12;
+      refs.eyes.scale.y = 0.35; // 线眼本来就细, 眨眼只需再压扁一点
     } else {
       refs.eyes.scale.y = 1;
       st.blinkAt = now + 1800 + Math.random() * 3400;

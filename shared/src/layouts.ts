@@ -217,12 +217,12 @@ function buildPlaza(): SpaceLayout {
   const npcs: NpcDef[] = [
     {
       id: -1, name: 'Nova', dialogueId: 'greeter', speed: 1.1, pause: 6,
-      avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#c9b3f0', '#5a3b8c', 1, '#5a3b8c', 1),
+      avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#cbb8d9', '#5a3b8c', 1, '#5a3b8c', 1),
       waypoints: [[3, 13], [-4, 15], [-2, 9]],
     },
     {
       id: -2, name: 'Milo', dialogueId: 'walker', speed: 1.5, pause: 3,
-      avatar: npcAvatar('#f5b8c4', '#3f7d44', '#c8ecc9', '#4a4a55', 0, '#333333', 0),
+      avatar: npcAvatar('#f5b8c4', '#3f7d44', '#b7cf8f', '#4a4a55', 0, '#333333', 0),
       waypoints: [[10, 8], [22, 18], [16, 24], [4, 30], [-12, 32], [-20, 20], [-10, 10]],
     },
   ];
@@ -297,7 +297,7 @@ function buildCafe(): SpaceLayout {
 
   const npcs: NpcDef[] = [{
     id: -3, name: 'Bea', dialogueId: 'barista', speed: 0.8, pause: 4,
-    avatar: npcAvatar('#e88ba0', '#8c3b24', '#f5e6d3', '#7a2e1f', 2, '#7a2e1f', 1),
+    avatar: npcAvatar('#e88ba0', '#8c3b24', '#f3c3cc', '#7a2e1f', 2, '#7a2e1f', 1),
     waypoints: [[-1.6, -5.3], [1.6, -5.3]],
   }];
 
@@ -315,7 +315,8 @@ function buildCinema(): SpaceLayout {
   const bounds: Bounds = { minX: -10, maxX: 10, minZ: -9, maxZ: 9 };
 
   b.inter('cine-exit', 'door', 0, 0, 8.7, 0, '返回广场', { target: SPACE.PLAZA, spawn: [30, 0, -15.6, 0] });
-  b.inter('cine-screen', 'screen', 0, 2.2, -8.4, 0, '影院银幕');
+  // 超大银幕:几乎占满整面前墙(视觉尺寸在客户端 registry 里定义)
+  b.inter('cine-screen', 'screen', 0, 3.55, -8.4, 0, '影院银幕');
 
   // Seat rows: 4 rows × 8 seats, center aisle
   let seatIdx = 0;
@@ -417,7 +418,7 @@ function buildShop(): SpaceLayout {
 
   const npcs: NpcDef[] = [{
     id: -4, name: 'Zed', dialogueId: 'shopkeeper', speed: 0.7, pause: 5,
-    avatar: npcAvatar('#f2a5b5', '#111111', '#f5e28a', '#33383f', 0, '#333333', 2),
+    avatar: npcAvatar('#f2a5b5', '#111111', '#8fc7c4', '#33383f', 0, '#333333', 2),
     waypoints: [[-4.4, 4.9], [-3.2, 4.9]],
   }];
 

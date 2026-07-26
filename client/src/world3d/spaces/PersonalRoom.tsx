@@ -100,7 +100,7 @@ function RoomShell({ room }: { room: RoomData }) {
         {room.style.lightsOn && s.lightPreset !== 'party' && (
           <>
             <pointLight position={[0, -0.6, 0]} color={lightColor} intensity={26} distance={14} decay={1.7} />
-            <ambientLight intensity={0.32} color={lightColor} />
+            <ambientLight intensity={0.37} color="#fff2e0" />
           </>
         )}
         {room.style.lightsOn && s.lightPreset === 'party' && (

@@ -1,11 +1,11 @@
 /**
- * Dango avatar: a squishy round dumpling character (inspired by classic
- * anime dango mascots, original geometry). Real modeled parts: body sphere,
- * dot eyes, mouth, blush, stubby arms/feet, sprout, hats, scarf, glasses.
+ * Dango avatar: a squishy steamed-bun / mochi character (Clannad「团子大家族」
+ * 风格,程序化几何,无外部资产). 扁扁的馒头形身体 (LatheGeometry)、
+ * 眯眯眼线条脸、蜡笔感 toon 渲染 + 反转外壳描边、头顶双叶小芽。
  *
  * AvatarConfig field mapping for dango:
- *   shirt → body color        pants → scarf color      shoes → feet color
- *   hair  → sprout color      hairStyle → 0 curl, 1 leaf, 2 none
+ *   shirt → body color        pants → scarf color      shoes → (feet, hidden)
+ *   hair  → sprout color      hairStyle → 0 curl, 1 twin-leaf, 2 none
  *   skin  → cheek/blush tint  hat/hatColor/glasses → as named
  */
 import { useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
@@ -29,9 +29,39 @@ interface Props {
   castShadow?: boolean;
 }
 
+/** 馒头身体总高 / 最大半径 (宽高比 ≈ 0.93 : 0.60 ≈ 1.55 : 1). */
+const BODY_H = 0.6;
 /** Body center height when standing on the ground. */
-export const DANGO_BODY_Y = 0.46;
-export const DANGO_EYE_HEIGHT = 0.62;
+export const DANGO_BODY_Y = BODY_H / 2; // 0.30
+export const DANGO_EYE_HEIGHT = 0.37;   // 眼睛世界高度 ≈ 身体高度 62%
+
+// ── 馒头轮廓 (lathe profile, 自底向上): 底部微微外扩 → 收圆 → 顶部圆润略平 ──
+const BODY_PROFILE: THREE.Vector2[] = [
+  [0.0, 0.0], [0.16, 0.002], [0.3, 0.008], [0.4, 0.02], [0.45, 0.045],
+  [0.465, 0.08], [0.46, 0.13], [0.445, 0.19], [0.42, 0.26], [0.385, 0.33],
+  [0.34, 0.4], [0.28, 0.47], [0.21, 0.53], [0.13, 0.575], [0.055, 0.595],
+  [0.0, BODY_H],
+].map(([x, y]) => new THREE.Vector2(x, y));
+
+/** 共享 lathe 几何(身体 + 描边外壳复用同一份). */
+const bodyGeometry = new THREE.LatheGeometry(BODY_PROFILE, 64);
+
+/** 3 阶灰度 toon gradientMap(NearestFilter → 硬色阶,蜡笔/水彩感). */
+let toonGrad: THREE.DataTexture | null = null;
+function toonGradient(): THREE.DataTexture {
+  if (toonGrad) return toonGrad;
+  const data = new Uint8Array([150, 200, 235, 255]);
+  toonGrad = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat);
+  toonGrad.minFilter = THREE.NearestFilter;
+  toonGrad.magFilter = THREE.NearestFilter;
+  toonGrad.needsUpdate = true;
+  return toonGrad;
+}
+
+/** 哑光 toon 材质工厂(所有主要部件统一画风). */
+function toonMat(color: THREE.ColorRepresentation): THREE.MeshToonMaterial {
+  return new THREE.MeshToonMaterial({ color, gradientMap: toonGradient() });
+}
 
 export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
   { config, name, isNpc = false, castShadow = true },
@@ -45,17 +75,21 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
 
   const bodyColor = config.shirt;
   const mats = useMemo(() => ({
-    body: new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.62 }),
-    bodyDark: new THREE.MeshStandardMaterial({ color: new THREE.Color(bodyColor).multiplyScalar(0.82), roughness: 0.62 }),
-    feet: new THREE.MeshStandardMaterial({ color: config.shoes, roughness: 0.7 }),
-    scarf: new THREE.MeshStandardMaterial({ color: config.pants, roughness: 0.85 }),
-    sprout: new THREE.MeshStandardMaterial({ color: config.hair, roughness: 0.75 }),
-    hat: new THREE.MeshStandardMaterial({ color: config.hatColor, roughness: 0.7 }),
-    eye: new THREE.MeshBasicMaterial({ color: '#23252b' }),
-    mouth: new THREE.MeshBasicMaterial({ color: '#3a2530' }),
-    blush: new THREE.MeshBasicMaterial({ color: config.skin, transparent: true, opacity: 0.55 }),
-    glass: new THREE.MeshStandardMaterial({ color: '#2b2f38', roughness: 0.25, metalness: 0.6 }),
-  }), [bodyColor, config.shoes, config.pants, config.hair, config.hatColor, config.skin]);
+    body: toonMat(bodyColor),
+    bodyDark: toonMat(new THREE.Color(bodyColor).multiplyScalar(0.88)),
+    // 描边: 身体色调深并偏暖棕,柔和蜡笔轮廓
+    outline: new THREE.MeshBasicMaterial({
+      color: new THREE.Color(bodyColor).lerp(new THREE.Color('#6b5b4f'), 0.55).multiplyScalar(0.72),
+      side: THREE.BackSide,
+    }),
+    scarf: toonMat(config.pants),
+    sprout: toonMat(config.hair),
+    hat: toonMat(config.hatColor),
+    eye: new THREE.MeshBasicMaterial({ color: '#3a3230' }),
+    mouth: new THREE.MeshBasicMaterial({ color: '#4a403c' }),
+    blush: new THREE.MeshBasicMaterial({ color: config.skin, transparent: true, opacity: 0.3, depthWrite: false }),
+    glass: toonMat('#3a3230'),
+  }), [bodyColor, config.pants, config.hair, config.hatColor, config.skin]);
 
   const nameTex = useMemo(() => nameTexture(name, isNpc), [name, isNpc]);
 
@@ -82,72 +116,61 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
     if (el) (joints.current as Record<string, THREE.Object3D>)[key] = el;
   };
 
-  const R = 0.42; // body radius
-
   return (
     <group ref={groupRef}>
       <group ref={J('root')}>
-        {/* feet (outside the squash group so they stay planted) */}
-        <group ref={J('footL')} position={[0.16, 0.05, 0.12]}>
-          <mesh material={mats.feet} castShadow={castShadow}>
-            <sphereGeometry args={[0.12, 12, 9]} />
-          </mesh>
-        </group>
-        <group ref={J('footR')} position={[-0.16, 0.05, 0.12]}>
-          <mesh material={mats.feet} castShadow={castShadow}>
-            <sphereGeometry args={[0.12, 12, 9]} />
-          </mesh>
-        </group>
+        {/* feet: 参考图团子没有明显手脚 — 空 group 保住 ref 契约, 不渲染 */}
+        <group ref={J('footL')} position={[0.14, 0.02, 0.1]} />
+        <group ref={J('footR')} position={[-0.14, 0.02, 0.1]} />
 
-        {/* squishy body */}
+        {/* squishy steamed-bun body */}
         <group ref={J('body')} position={[0, DANGO_BODY_Y, 0]}>
-          <mesh material={mats.body} castShadow={castShadow} scale={[1, 0.94, 1]}>
-            <sphereGeometry args={[R, 26, 20]} />
-          </mesh>
+          <mesh geometry={bodyGeometry} material={mats.body} castShadow={castShadow} position={[0, -DANGO_BODY_Y, 0]} />
+          {/* 反转外壳描边 (inverted-hull outline) */}
+          <mesh geometry={bodyGeometry} material={mats.outline} position={[0, -DANGO_BODY_Y - 0.008, 0]} scale={1.04} />
 
-          {/* scarf */}
-          <mesh material={mats.scarf} position={[0, -0.19, 0]} rotation={[0.12, 0, 0]} castShadow={castShadow}>
-            <torusGeometry args={[R * 0.82, 0.055, 10, 22]} />
-          </mesh>
-          <mesh material={mats.scarf} position={[0.1, -0.26, R * 0.72]} rotation={[0.3, 0, 0.2]}>
-            <boxGeometry args={[0.09, 0.16, 0.03]} />
+          {/* scarf: 很细的一圈, 贴在底部, 不抢造型 */}
+          <mesh material={mats.scarf} position={[0, -0.245, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.445, 0.03, 8, 40]} />
           </mesh>
 
           {/* face */}
-          <group ref={J('face')} position={[0, 0.1, 0]}>
+          <group ref={J('face')} position={[0, 0.07, 0]}>
+            {/* 眼睛: 两条细细的水平短线 (横放圆头胶囊), 眯眯眼满足表情 */}
             <group ref={J('eyes')}>
-              <mesh material={mats.eye} position={[-0.13, 0.05, R * 0.88]}>
-                <sphereGeometry args={[0.038, 10, 8]} />
+              <mesh material={mats.eye} position={[-0.13, 0, 0.34]} rotation={[0, 0, Math.PI / 2]}>
+                <capsuleGeometry args={[0.012, 0.1, 4, 8]} />
               </mesh>
-              <mesh material={mats.eye} position={[0.13, 0.05, R * 0.88]}>
-                <sphereGeometry args={[0.038, 10, 8]} />
+              <mesh material={mats.eye} position={[0.13, 0, 0.34]} rotation={[0, 0, Math.PI / 2]}>
+                <capsuleGeometry args={[0.012, 0.1, 4, 8]} />
               </mesh>
             </group>
-            {/* mouth: small open arc */}
+            {/* 嘴: 极小的一条短线, 若有若无; animator scale.y 张嘴时变成小圆 */}
             <mesh ref={(el) => { if (el) (joints.current as Record<string, THREE.Object3D>).mouth = el; }}
-              material={mats.mouth} position={[0, -0.07, R * 0.9]} rotation={[0.1, 0, 0]}>
-              <circleGeometry args={[0.045, 12]} />
+              material={mats.mouth} position={[0, -0.09, 0.41]} rotation={[0, 0, Math.PI / 2]}>
+              <capsuleGeometry args={[0.008, 0.018, 4, 8]} />
             </mesh>
-            {/* blush */}
-            <mesh material={mats.blush} position={[-0.24, -0.03, R * 0.8]} rotation={[0, -0.5, 0]}>
-              <circleGeometry args={[0.055, 10]} />
+            {/* 腮红: 很淡的椭圆, 贴面 */}
+            <mesh material={mats.blush} position={[-0.245, -0.045, 0.31]} rotation={[0, -0.6, 0]} scale={[1, 0.72, 1]}>
+              <circleGeometry args={[0.06, 12]} />
             </mesh>
-            <mesh material={mats.blush} position={[0.24, -0.03, R * 0.8]} rotation={[0, 0.5, 0]}>
-              <circleGeometry args={[0.055, 10]} />
+            <mesh material={mats.blush} position={[0.245, -0.045, 0.31]} rotation={[0, 0.6, 0]} scale={[1, 0.72, 1]}>
+              <circleGeometry args={[0.06, 12]} />
             </mesh>
           </group>
 
-          {/* arms: stubby nubs */}
-          <group ref={J('armL')} position={[R * 0.86, -0.02, 0]}>
-            <mesh material={mats.bodyDark} castShadow={castShadow} position={[0.06, 0, 0]}>
-              <capsuleGeometry args={[0.075, 0.1, 4, 10]} />
+          {/* arms: 极小的圆凸起, 平时几乎藏进身体, 挥手/鼓掌时由 armL/armR 旋转伸出 */}
+          <group ref={J('armL')} position={[0.43, -0.06, 0]}>
+            <mesh material={mats.bodyDark} castShadow={castShadow} position={[0.02, 0, 0]}>
+              <sphereGeometry args={[0.055, 10, 8]} />
             </mesh>
           </group>
-          <group ref={J('armR')} position={[-R * 0.86, -0.02, 0]}>
-            <mesh material={mats.bodyDark} castShadow={castShadow} position={[-0.06, 0, 0]}>
-              <capsuleGeometry args={[0.075, 0.1, 4, 10]} />
+          <group ref={J('armR')} position={[-0.43, -0.06, 0]}>
+            <mesh material={mats.bodyDark} castShadow={castShadow} position={[-0.02, 0, 0]}>
+              <sphereGeometry args={[0.055, 10, 8]} />
             </mesh>
-            <group ref={heldRef} position={[-0.1, -0.1, 0.1]} visible={false}>
+            {/* held 物品锚点: 贴右侧凸起 */}
+            <group ref={heldRef} position={[-0.07, -0.08, 0.06]} visible={false}>
               <HeldCoffee />
               <HeldSoda />
               <HeldPizza />
@@ -155,72 +178,74 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
             </group>
           </group>
 
-          {/* sprout / leaf */}
+          {/* sprout: 0 = 卷卷芽, 1 = 参考图双叶小芽 (细茎 + 两片圆叶) */}
           {config.hairStyle !== 2 && config.hat === 0 && (
-            <group ref={J('sprout')} position={[0, R * 0.94, 0]}>
+            <group ref={J('sprout')} position={[0, 0.295, 0]}>
               {config.hairStyle === 0 ? (
                 <>
                   <mesh material={mats.sprout}>
-                    <cylinderGeometry args={[0.02, 0.028, 0.16, 8]} />
+                    <cylinderGeometry args={[0.016, 0.022, 0.13, 8]} />
                   </mesh>
-                  <mesh material={mats.sprout} position={[0.05, 0.1, 0]} rotation={[0, 0, -1.2]}>
-                    <torusGeometry args={[0.06, 0.02, 8, 14, Math.PI * 1.4]} />
+                  <mesh material={mats.sprout} position={[0.045, 0.09, 0]} rotation={[0, 0, -1.2]}>
+                    <torusGeometry args={[0.05, 0.016, 8, 14, Math.PI * 1.4]} />
                   </mesh>
                 </>
               ) : (
                 <>
-                  <mesh material={mats.sprout} position={[0, 0.04, 0]}>
-                    <cylinderGeometry args={[0.018, 0.024, 0.1, 8]} />
+                  {/* 细茎 */}
+                  <mesh material={mats.sprout} position={[0, 0.06, 0]}>
+                    <cylinderGeometry args={[0.008, 0.011, 0.13, 8]} />
                   </mesh>
-                  <mesh material={mats.sprout} position={[0.07, 0.11, 0]} rotation={[0, 0, -0.7]} scale={[1, 0.4, 0.6]}>
-                    <sphereGeometry args={[0.09, 10, 8]} />
+                  {/* 两片圆润小叶: 压扁的 sphere */}
+                  <mesh material={mats.sprout} position={[0.065, 0.13, 0]} rotation={[0, 0, -0.55]} scale={[1, 0.42, 0.55]}>
+                    <sphereGeometry args={[0.075, 12, 10]} />
                   </mesh>
-                  <mesh material={mats.sprout} position={[-0.07, 0.11, 0]} rotation={[0, 0, 0.7]} scale={[1, 0.4, 0.6]}>
-                    <sphereGeometry args={[0.09, 10, 8]} />
+                  <mesh material={mats.sprout} position={[-0.065, 0.13, 0]} rotation={[0, 0, 0.55]} scale={[1, 0.42, 0.55]}>
+                    <sphereGeometry args={[0.075, 12, 10]} />
                   </mesh>
                 </>
               )}
             </group>
           )}
 
-          {/* hats */}
+          {/* hats: 贴合矮宽头顶 */}
           {config.hat === 1 && (
-            <group position={[0, R * 0.72, 0]} rotation={[0.08, 0, 0]}>
-              <mesh material={mats.hat} castShadow={castShadow}>
-                <sphereGeometry args={[R * 0.72, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
+            <group position={[0, 0.1, 0]} rotation={[0.08, 0, 0]}>
+              <mesh material={mats.hat} castShadow={castShadow} scale={[1, 0.62, 1]}>
+                <sphereGeometry args={[0.42, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.46]} />
               </mesh>
-              <mesh material={mats.hat} position={[0, 0.02, R * 0.62]} rotation={[-0.15, 0, 0]}>
-                <cylinderGeometry args={[0.22, 0.24, 0.03, 14]} />
+              <mesh material={mats.hat} position={[0, 0.05, 0.38]} rotation={[-0.18, 0, 0]}>
+                <cylinderGeometry args={[0.2, 0.22, 0.025, 14]} />
               </mesh>
             </group>
           )}
           {config.hat === 2 && (
-            <mesh material={mats.hat} position={[0, R * 0.66, 0]} castShadow={castShadow}>
-              <sphereGeometry args={[R * 0.78, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
+            <mesh material={mats.hat} position={[0, 0.06, 0]} scale={[1, 0.56, 1]} castShadow={castShadow}>
+              <sphereGeometry args={[0.46, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
             </mesh>
           )}
           {config.hat === 3 && (
-            <group position={[0, R * 0.92, 0]} rotation={[0, 0, 0.06]}>
+            <group position={[0, 0.28, 0]} rotation={[0, 0, 0.06]}>
               <mesh material={mats.hat} castShadow={castShadow}>
-                <cylinderGeometry args={[0.19, 0.2, 0.3, 16]} />
+                <cylinderGeometry args={[0.16, 0.17, 0.24, 16]} />
               </mesh>
-              <mesh material={mats.hat} position={[0, -0.13, 0]}>
-                <cylinderGeometry args={[0.33, 0.33, 0.03, 18]} />
+              <mesh material={mats.hat} position={[0, -0.1, 0]}>
+                <cylinderGeometry args={[0.29, 0.29, 0.025, 18]} />
               </mesh>
             </group>
           )}
 
-          {/* glasses */}
+          {/* glasses: 围绕线眼的两个细圆环 */}
           {config.glasses && (
-            <group position={[0, 0.15, R * 0.92]}>
+            <group position={[0, 0.07, 0.35]}>
               <mesh material={mats.glass} position={[-0.13, 0, 0]}>
-                <torusGeometry args={[0.07, 0.012, 6, 16]} />
+                <torusGeometry args={[0.055, 0.008, 6, 18]} />
               </mesh>
               <mesh material={mats.glass} position={[0.13, 0, 0]}>
-                <torusGeometry args={[0.07, 0.012, 6, 16]} />
+                <torusGeometry args={[0.055, 0.008, 6, 18]} />
               </mesh>
               <mesh material={mats.glass}>
-                <boxGeometry args={[0.12, 0.014, 0.014]} />
+                <boxGeometry args={[0.1, 0.01, 0.01]} />
               </mesh>
             </group>
           )}
@@ -229,15 +254,15 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
 
       {/* soft contact shadow (works even with shadow maps off) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
-        <circleGeometry args={[0.34, 18]} />
+        <circleGeometry args={[0.42, 20]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
       </mesh>
       {/* nametag */}
-      <sprite position={[0, 1.38, 0]} scale={[1.05, 0.26, 1]}>
+      <sprite position={[0, 0.88, 0]} scale={[1.05, 0.26, 1]}>
         <spriteMaterial map={nameTex} transparent depthWrite={false} />
       </sprite>
       {/* speaking indicator */}
-      <sprite ref={speakRef} position={[0, 1.66, 0]} scale={[0.15, 0.15, 1]} visible={false}>
+      <sprite ref={speakRef} position={[0, 1.08, 0]} scale={[0.15, 0.15, 1]} visible={false}>
         <spriteMaterial map={speakingTexture()} transparent depthWrite={false} />
       </sprite>
     </group>

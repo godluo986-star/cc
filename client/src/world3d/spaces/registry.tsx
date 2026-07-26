@@ -78,7 +78,10 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'whiteboard': return (
       <WhiteboardSurface key={key} position={it.pos} rotation={it.ry} boardId={String(it.data?.boardId ?? it.id)} />
     );
-    case 'screen': return <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
+    // 影院超大银幕:几乎铺满整面前墙;其余空间的挂屏保持常规尺寸
+    case 'screen': return it.id === 'cine-screen'
+      ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={16} height={6.4} />
+      : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
     case 'jukebox': return <Jukebox key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} />;
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'lightsout': return <LightsOutMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;

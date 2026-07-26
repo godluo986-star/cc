@@ -43,7 +43,7 @@ Esc 关面板。右下角按钮:✏️ 房间编辑器(在自己房间时)、�
 | **Media screens** | Cinema screen + room TVs show **websites (iframe)**, **YouTube** (official embed, position-synced), or **direct video files** (synced). Local seek bar; server only relays tiny state — media streams to each client directly |
 | **Interactions** | Seats everywhere, sliding doors, light switches, shared whiteboards, message boards, synth jukebox (beat-synced for all listeners), vending machines + inventory, furniture-unlock economy, beach ball with physics, books, computer notes, wardrobe storage, mirrors |
 | **Games** | Xiangqi (象棋, full folk-rules move legality) and Fuzhou mahjong (福州麻将: no chi, pong/kong/hu, 开金 gold wilds, 三金倒 instant win, bot fill-ins, per-viewer hand redaction) on real 3D tables spectators can watch, plus two-player tic-tac-toe and Lights Out cabinets with live screens |
-| **Voice & screens** | Proximity WebRTC mesh with HRTF spatial audio and speaking indicators; low-bitrate screen sharing (≤640×360@10fps, ~350 kbps) that floats above your dango for nearby players |
+| **Voice & screens** | Proximity WebRTC mesh with HRTF spatial audio and speaking indicators; screen sharing (720p@30fps, capped ~2.5 Mbps) that floats above your dango for nearby players |
 | **Audio** | Fully procedural: hop boings, UI chimes, wind/rain/birds/crickets ambience, three sequenced jukebox tracks — zero recorded assets |
 
 ## Quick start

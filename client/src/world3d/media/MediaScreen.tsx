@@ -261,7 +261,9 @@ export default function MediaScreen({ position, rotation, width, height, frame =
         </mesh>
       )}
       {active && (
-        <Html transform position={[0, 0, 0.03]} scale={width / PX} zIndexRange={[5, 0]}>
+        /* distanceFactor=400 抵消 drei transform 模式的 (df||10)/400 内置缩放,
+           使 1 个 CSS 缩放单位 = 1 个世界单位:div 宽 PX px × scale = width 米 */
+        <Html transform position={[0, 0, 0.03]} scale={width / PX} distanceFactor={400} zIndexRange={[5, 0]}>
           {media!.kind === 'site' && <SiteFrame media={media!} w={width} h={height} />}
           {media!.kind === 'video' && <OverlayVideo media={media!} w={width} h={height} />}
           {media!.kind === 'youtube' && <YouTubeFrame media={media!} w={width} h={height} />}

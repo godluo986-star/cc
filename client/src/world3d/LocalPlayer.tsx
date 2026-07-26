@@ -20,7 +20,7 @@ import { buildTargets, buildColliders, performAction, labelFor, type Target } fr
 import { audio } from '../audio/engine';
 
 /** Interior ceiling heights for camera containment (rooms default to 3.0). */
-const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 5.2, arcade: 3.6, shop: 3.4, lobby: 4.2 };
+const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 7.2, arcade: 3.6, shop: 3.4, lobby: 4.2 };
 
 export default function LocalPlayer() {
   const avatarRef = useRef<AvatarHandle>(null);
@@ -208,7 +208,7 @@ export default function LocalPlayer() {
 
     // ── Camera rig ──
     const cam = hot.camera;
-    const headY = l.y + 0.98;
+    const headY = l.y + 0.8; // 团子矮墩墩,取景点跟着放低
     let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
     let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
     let cy = headY + Math.sin(cam.pitch) * cam.dist;
@@ -225,7 +225,7 @@ export default function LocalPlayer() {
     camera.position.x += (cx - camera.position.x) * kPos;
     camera.position.y += (clampedCy - camera.position.y) * kPos;
     camera.position.z += (cz - camera.position.z) * kPos;
-    camera.lookAt(l.x, headY - 0.18, l.z);
+    camera.lookAt(l.x, headY - 0.22, l.z);
 
     // ── Avatar visuals ──
     if (groupRef.current) {

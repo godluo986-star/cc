@@ -1,6 +1,6 @@
 import { Suspense, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { EffectComposer, Bloom, Vignette, SMAA } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, SMAA, HueSaturation, BrightnessContrast } from '@react-three/postprocessing';
 import { isRoomSpace, LAYOUTS, SPACE } from '@nexuspark/shared';
 import { useWorld, useSettings } from '../state/stores';
 import { hot } from '../state/hot';
@@ -73,8 +73,11 @@ export default function Scene() {
       {postfx && (
         <EffectComposer multisampling={0}>
           <SMAA />
-          <Bloom intensity={0.55} luminanceThreshold={0.85} luminanceSmoothing={0.2} mipmapBlur />
-          <Vignette eskil={false} offset={0.18} darkness={0.72} />
+          <Bloom intensity={0.4} luminanceThreshold={0.85} luminanceSmoothing={0.2} mipmapBlur />
+          {/* 粉彩绘本分级:轻微提饱和 + 提亮降对比,让画面软而不灰 */}
+          <HueSaturation saturation={0.08} />
+          <BrightnessContrast brightness={0.02} contrast={-0.04} />
+          <Vignette eskil={false} offset={0.18} darkness={0.55} />
         </EffectComposer>
       )}
     </>

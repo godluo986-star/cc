@@ -36,7 +36,7 @@ const CONFIGS: Record<string, InteriorConfig> = {
     windows: [{ side: 's', center: -4.5, w: 2 }, { side: 's', center: 4.5, w: 2 }, { side: 'w', center: 2.5, w: 2 }],
   },
   cinema: {
-    wallColor: '#2b2129', trimColor: '#1a141a', ceilingColor: '#171218', height: 5.2,
+    wallColor: '#2b2129', trimColor: '#1a141a', ceilingColor: '#171218', height: 7.2,
     floor: 'carpet', gaps: [{ side: 's', center: 0, width: 3 }],
     lights: [
       { x: -8, z: 0, color: '#c05555', intensity: 3.2 },
@@ -214,7 +214,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
         </group>
       ))}
       {/* soft fill so interiors read clearly at any hour */}
-      {lightsOn && <ambientLight intensity={0.3} color={cfg.neon ? '#8a90c8' : '#ffe9cf'} />}
+      {lightsOn && <ambientLight intensity={0.35} color={cfg.neon ? '#8a90c8' : '#fff2e0'} />}
       {!lightsOn && <pointLight position={[cx, 1.6, cz]} color="#3a4a6f" intensity={2.2} distance={16} />}
       {!lightsOn && <ambientLight intensity={0.08} color="#33415f" />}
 

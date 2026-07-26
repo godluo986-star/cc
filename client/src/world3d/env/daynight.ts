@@ -27,17 +27,19 @@ interface Key {
   stars: number;
 }
 
+// 粉彩绘本调色:低饱和、柔和过渡。夜晚是柔和蓝紫而非死黑;
+// 黎明/黄昏走杏粉/藕紫;白天天空低饱和粉蓝 + 奶油白地平线。
 const KEYS: Key[] = [
-  { t: 0.0,  skyTop: '#070b1a', skyHorizon: '#0e1830', sun: 0,    sunColor: '#8fa6ff', hemi: 0.22, hemiSky: '#22304f', hemiGround: '#10131c', stars: 1 },
-  { t: 0.2,  skyTop: '#0a1024', skyHorizon: '#1a2340', sun: 0,    sunColor: '#a3b3ff', hemi: 0.24, hemiSky: '#2a3654', hemiGround: '#131720', stars: 0.9 },
-  { t: 0.26, skyTop: '#28406f', skyHorizon: '#e08a5a', sun: 0.75, sunColor: '#ffb066', hemi: 0.42, hemiSky: '#7a86ab', hemiGround: '#3a3730', stars: 0.15 },
-  { t: 0.32, skyTop: '#3a71b8', skyHorizon: '#bcd4ea', sun: 1.7,  sunColor: '#ffe0b0', hemi: 0.6,  hemiSky: '#a9c4e8', hemiGround: '#5a5a50', stars: 0 },
-  { t: 0.5,  skyTop: '#3d7edb', skyHorizon: '#c3ddf2', sun: 2.3,  sunColor: '#fff4e0', hemi: 0.72, hemiSky: '#bcd6f0', hemiGround: '#6b6a5e', stars: 0 },
-  { t: 0.68, skyTop: '#3a6cc0', skyHorizon: '#c8d4e8', sun: 1.9,  sunColor: '#ffe8c8', hemi: 0.64, hemiSky: '#aec6e6', hemiGround: '#5e5c52', stars: 0 },
-  { t: 0.76, skyTop: '#33427c', skyHorizon: '#ff9a5c', sun: 0.85, sunColor: '#ff9c50', hemi: 0.45, hemiSky: '#8b84a8', hemiGround: '#453b33', stars: 0.1 },
-  { t: 0.83, skyTop: '#141c3d', skyHorizon: '#5c3a63', sun: 0.12, sunColor: '#ff8560', hemi: 0.3,  hemiSky: '#3a3c5f', hemiGround: '#1c1a22', stars: 0.55 },
-  { t: 0.9,  skyTop: '#090e20', skyHorizon: '#101a33', sun: 0,    sunColor: '#8fa6ff', hemi: 0.23, hemiSky: '#252f4d', hemiGround: '#11141d', stars: 1 },
-  { t: 1.0,  skyTop: '#070b1a', skyHorizon: '#0e1830', sun: 0,    sunColor: '#8fa6ff', hemi: 0.22, hemiSky: '#22304f', hemiGround: '#10131c', stars: 1 },
+  { t: 0.0,  skyTop: '#2b3057', skyHorizon: '#4a4e78', sun: 0,    sunColor: '#aab6ff', hemi: 0.35, hemiSky: '#5a608c', hemiGround: '#3a3a4e', stars: 1 },
+  { t: 0.2,  skyTop: '#333963', skyHorizon: '#535788', sun: 0,    sunColor: '#b4bfff', hemi: 0.36, hemiSky: '#626896', hemiGround: '#3e3e54', stars: 0.9 },
+  { t: 0.26, skyTop: '#6d7cb2', skyHorizon: '#f2b8a0', sun: 0.7,  sunColor: '#ffc79a', hemi: 0.55, hemiSky: '#a8a4c8', hemiGround: '#6e6258', stars: 0.15 },
+  { t: 0.32, skyTop: '#7fb0de', skyHorizon: '#f0e2cc', sun: 1.5,  sunColor: '#ffeccc', hemi: 0.75, hemiSky: '#c6d8ec', hemiGround: '#8a8274', stars: 0 },
+  { t: 0.5,  skyTop: '#7db8e8', skyHorizon: '#f2ead8', sun: 1.9,  sunColor: '#fff6e6', hemi: 0.85, hemiSky: '#d3e2f2', hemiGround: '#948c7c', stars: 0 },
+  { t: 0.68, skyTop: '#7cabdc', skyHorizon: '#efe3d0', sun: 1.65, sunColor: '#ffedd2', hemi: 0.8,  hemiSky: '#c9d8ec', hemiGround: '#8c8476', stars: 0 },
+  { t: 0.76, skyTop: '#8a7cb8', skyHorizon: '#f2b6a4', sun: 0.75, sunColor: '#ffb98c', hemi: 0.58, hemiSky: '#b3a2c6', hemiGround: '#6e6058', stars: 0.1 },
+  { t: 0.83, skyTop: '#474b7e', skyHorizon: '#9a80ab', sun: 0.12, sunColor: '#f0a58a', hemi: 0.42, hemiSky: '#6c6a99', hemiGround: '#46425a', stars: 0.55 },
+  { t: 0.9,  skyTop: '#30355e', skyHorizon: '#4f5382', sun: 0,    sunColor: '#aab6ff', hemi: 0.36, hemiSky: '#5c628e', hemiGround: '#3b3b50', stars: 1 },
+  { t: 1.0,  skyTop: '#2b3057', skyHorizon: '#4a4e78', sun: 0,    sunColor: '#aab6ff', hemi: 0.35, hemiSky: '#5a608c', hemiGround: '#3a3a4e', stars: 1 },
 ];
 
 const tmpA = new THREE.Color();
@@ -65,8 +67,9 @@ const scratch: EnvSample = {
   cloudTint: new THREE.Color(),
 };
 
-const GRAY_DAY = new THREE.Color('#9aa5b1');
-const GRAY_TOP = new THREE.Color('#5b6673');
+// 阴雨灰调:偏暖偏浅的米灰,避免脏灰
+const GRAY_DAY = new THREE.Color('#cfc9c0');
+const GRAY_TOP = new THREE.Color('#a3a6b2');
 
 export function sampleEnv(tod: number, weather: Weather, out: EnvSample = scratch): EnvSample {
   const t = ((tod % 1) + 1) % 1;
@@ -97,10 +100,10 @@ export function sampleEnv(tod: number, weather: Weather, out: EnvSample = scratc
     out.starOpacity *= 0.35;
     out.fogDensityMul = 1.4;
   } else if (weather === 'rain') {
-    out.sunIntensity *= 0.28;
+    out.sunIntensity *= 0.3;
     out.skyTop.lerp(GRAY_TOP, 0.72);
     out.skyHorizon.lerp(GRAY_DAY, 0.7);
-    out.hemiIntensity *= 0.75;
+    out.hemiIntensity *= 0.82;
     out.starOpacity = 0;
     out.fogDensityMul = 2.1;
   }

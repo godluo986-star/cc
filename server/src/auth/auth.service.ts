@@ -38,7 +38,7 @@ export class AuthError extends Error {
 // Dango avatars: shirt = body color, skin = blush tint, pants = scarf,
 // shoes = feet, hair = sprout color (hairStyle 0 curl / 1 leaf / 2 none).
 const DEFAULT_AVATAR: AvatarConfig = {
-  skin: '#f2a5b5', hair: '#5da55f', shirt: '#f5e6d3', pants: '#c05555',
+  skin: '#f2a5b5', hair: '#5da55f', shirt: '#f5eee0', pants: '#c05555',
   shoes: '#8a6f5f', hat: 0, hatColor: '#c0392b', glasses: false, hairStyle: 0,
 };
 
@@ -47,7 +47,8 @@ function randomAvatar(): AvatarConfig {
   return {
     skin: pick(['#f2a5b5', '#f5b8c4', '#e88ba0', '#f2c4cd']),
     hair: pick(['#5da55f', '#3f7d44', '#7fbf6f', '#d4a017', '#b03a48']),
-    shirt: pick(['#f5e6d3', '#f2c4cd', '#c4d9f2', '#c8ecc9', '#f5e28a', '#e0c4f2', '#f5c09a', '#ffffff']),
+    // 参考图粉彩组:抹茶绿/青蓝/樱粉/奶棕/奶油白 + 浅藤紫/鹅黄
+    shirt: pick(['#b7cf8f', '#8fc7c4', '#f3c3cc', '#a08a78', '#f5eee0', '#cbb8d9', '#f0e3ae']),
     pants: pick(['#c05555', '#3e5f8a', '#3f7d44', '#8e44ad', '#d4a017']),
     shoes: pick(['#8a6f5f', '#5a5a6a', '#a08a7a']),
     hat: Math.random() < 0.35 ? Math.floor(Math.random() * 3) + 1 : 0,

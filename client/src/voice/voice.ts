@@ -1,7 +1,7 @@
 /**
  * P2P media mesh (server relays signaling only), carrying:
  *  - proximity voice: mic audio spatialized through WebAudio HRTF panners
- *  - screen sharing: low-bitrate captures (≤640×360 @ ≤10fps, ~350 kbps cap)
+ *  - screen sharing: 720p@30fps captures (~2.5 Mbps sender cap)
  *    shown on floating displays above the sharing dango
  * Links form between peers in range whenever either side publishes media,
  * using the standard "perfect negotiation" pattern for renegotiation.
@@ -26,7 +26,7 @@ interface Peer {
   videoSender: RTCRtpSender | null;
 }
 
-const SCREEN_MAX_BITRATE = 350_000; // ~350 kbps per viewer — keep it light
+const SCREEN_MAX_BITRATE = 2_500_000; // 720p@30 屏幕内容 ~2.5 Mbps 上限
 
 class VoiceManager {
   private micStream: MediaStream | null = null;
@@ -117,7 +117,7 @@ class VoiceManager {
     const vs = useVoice.getState();
     try {
       this.screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: { max: 640 }, height: { max: 360 }, frameRate: { max: 10 } },
+        video: { width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 30, max: 30 } },
         audio: false,
       });
     } catch {
