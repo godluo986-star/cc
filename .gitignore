@@ -1,0 +1,28 @@
+# Dependencies (always project-local)
+node_modules/
+
+# Builds
+client/dist/
+server/dist/
+shared/dist/
+*.tsbuildinfo
+
+# Runtime data (SQLite database, generated secrets)
+server/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs / misc
+*.log
+npm-debug.log*
+.DS_Store
+coverage/
+playwright-report/
+test-results/
