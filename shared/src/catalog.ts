@@ -97,7 +97,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'coffee', name: 'Coffee', price: 5, kind: 'consumable', heldId: 1, icon: '☕' },
   { id: 'soda', name: 'Nexus Cola', price: 4, kind: 'consumable', heldId: 2, icon: '🥤' },
   { id: 'pizza', name: 'Pizza slice', price: 6, kind: 'consumable', heldId: 3, icon: '🍕' },
-  { id: 'book_poems', name: 'Pocket book', price: 8, kind: 'consumable', heldId: 4, icon: '📖' },
+  { id: 'book_poems', name: 'Pocket book', price: 8, kind: 'collectible', heldId: 4, icon: '📖' },
   { id: 'ticket', name: 'Cinema ticket', price: 3, kind: 'collectible', icon: '🎟️' },
 ];
 export const ITEMS_BY_ID: Record<string, ItemDef> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
