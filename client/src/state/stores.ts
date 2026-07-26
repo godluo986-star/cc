@@ -290,6 +290,8 @@ interface SettingsStore {
   invertY: boolean;
   /** 减少镜头运动:被抓时进一步钳制相机高度变化速率(lerp k 减半)。 */
   reduceMotion: boolean;
+  /** 免抓取:别人抓不起我(服务器强制;prefs 消息同步)。 */
+  noGrab: boolean;
   set: (p: Partial<SettingsStore>) => void;
   applyQuality: (q: Quality) => void;
 }
@@ -313,6 +315,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   mediaVolume: 0.9,
   invertY: false,
   reduceMotion: false,
+  noGrab: false,
   ...savedSettings,
   set: (p) => {
     set(p);
@@ -370,3 +373,59 @@ export function inventoryCount(inv: InventoryEntry[], id: string): number {
   return inv.find((i) => i.itemId === id)?.qty ?? 0;
 }
 export type { AvatarConfig };
+
+// ── 社交边界(个人安全:单独音量/静音/屏蔽;localStorage 持久化)──────────
+interface SocialStore {
+  /** 屏蔽名单(userId,跨会话稳定):隐藏聊天、断语音链、互相不能抓。 */
+  blocked: number[];
+  /** 单独静音(userId):只是我听不到 TA,不影响其他人。 */
+  muted: number[];
+  /** 单独音量(userId → 0..1.5,默认 1)。 */
+  volumes: Record<number, number>;
+  toggleBlock: (userId: number) => void;
+  toggleMute: (userId: number) => void;
+  setVolume: (userId: number, v: number) => void;
+  isBlocked: (userId: number) => boolean;
+  /** 有效增益 = muted?0 : volumes[id] ?? 1(blocked 恒 0)。 */
+  gainFor: (userId: number) => number;
+}
+const savedSocial = (() => {
+  try { return JSON.parse(localStorage.getItem('np_social') ?? '{}'); } catch { return {}; }
+})();
+const persistSocial = (s: Pick<SocialStore, 'blocked' | 'muted' | 'volumes'>) =>
+  localStorage.setItem('np_social', JSON.stringify(s));
+export const useSocial = create<SocialStore>((set, get) => ({
+  blocked: Array.isArray(savedSocial.blocked) ? savedSocial.blocked : [],
+  muted: Array.isArray(savedSocial.muted) ? savedSocial.muted : [],
+  volumes: savedSocial.volumes && typeof savedSocial.volumes === 'object' ? savedSocial.volumes : {},
+  toggleBlock: (userId) => {
+    set((s) => {
+      const blocked = s.blocked.includes(userId) ? s.blocked.filter((b) => b !== userId) : [...s.blocked, userId].slice(-200);
+      const next = { blocked, muted: s.muted, volumes: s.volumes };
+      persistSocial(next);
+      return next;
+    });
+  },
+  toggleMute: (userId) => {
+    set((s) => {
+      const muted = s.muted.includes(userId) ? s.muted.filter((m) => m !== userId) : [...s.muted, userId];
+      const next = { blocked: s.blocked, muted, volumes: s.volumes };
+      persistSocial(next);
+      return next;
+    });
+  },
+  setVolume: (userId, v) => {
+    set((s) => {
+      const volumes = { ...s.volumes, [userId]: Math.max(0, Math.min(1.5, v)) };
+      const next = { blocked: s.blocked, muted: s.muted, volumes };
+      persistSocial(next);
+      return next;
+    });
+  },
+  isBlocked: (userId) => get().blocked.includes(userId),
+  gainFor: (userId) => {
+    const s = get();
+    if (s.blocked.includes(userId) || s.muted.includes(userId)) return 0;
+    return s.volumes[userId] ?? 1;
+  },
+}));

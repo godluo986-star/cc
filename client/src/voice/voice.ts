@@ -12,8 +12,13 @@
 import { VOICE_RANGE, VOICE_CONNECT_RANGE } from '@nexuspark/shared';
 import { connection } from '../net/connection';
 import { hot } from '../state/hot';
-import { useVoice, useWorld } from '../state/stores';
+import { useVoice, useWorld, useSocial } from '../state/stores';
 import { audio } from '../audio/engine';
+
+/** 会话 id → userId(屏蔽/音量按 userId 存,跨会话稳定)。 */
+function userIdOf(sessionId: number): number | null {
+  return hot.players.get(sessionId)?.profile.userId ?? null;
+}
 
 interface Peer {
   id: number;
@@ -212,11 +217,13 @@ class VoiceManager {
     const vs = useVoice.getState();
     const iPublish = (vs.enabled && !!this.micStream) || (vs.screenOn && !!this.screenStream);
     const out: number[] = [];
+    const social = useSocial.getState();
     const candidates = new Set([...voiceRoster, ...screenRoster]);
     for (const id of candidates) {
       if (id === hot.selfId) continue;
       const e = hot.players.get(id);
       if (!e) continue;
+      if (social.isBlocked(e.profile.userId)) continue; // 屏蔽:不建链
       const theyPublish = voiceRoster.includes(id) || screenRoster.includes(id);
       if (!iPublish && !theyPublish) continue;
       const d = Math.hypot(e.x - hot.local.x, e.z - hot.local.z);
@@ -232,8 +239,10 @@ class VoiceManager {
         if (d < (connected ? VOICE_CONNECT_RANGE + 4 : VOICE_CONNECT_RANGE)) out.push(e.id);
       }
     }
-    // 全世界语音:听者主动与全服广播者建链,不受空间/距离限制
+    // 全世界语音:听者主动与全服广播者建链,不受空间/距离限制(屏蔽者除外)
     for (const id of voiceWorldRoster) {
+      const uid = userIdOf(id);
+      if (uid !== null && social.isBlocked(uid)) continue;
       if (id !== hot.selfId && !out.includes(id)) out.push(id);
     }
     // 我自己是全服广播者时,保住所有已建立的链(听者可能来自任何空间)
@@ -276,8 +285,11 @@ class VoiceManager {
       setV(l.upX, 0); setV(l.upY, 1); setV(l.upZ, 0);
     }
     const worldIds = useWorld.getState().voiceWorldRoster;
+    const social = useSocial.getState();
     for (const [id, peer] of this.peers) {
       const e = hot.players.get(id);
+      // 单独音量/静音:每路增益 = gainFor(userId)(0..1.5;静音/屏蔽=0)
+      if (peer.gain && e) peer.gain.gain.value = social.gainFor(e.profile.userId);
       if (peer.panner) {
         if (worldIds.includes(id)) {
           // 全世界语音:声源钉在听者位置 → 无距离衰减、无方位,像全服喇叭
@@ -389,6 +401,9 @@ class VoiceManager {
   }
 
   private async onSignal(d: { from: number; kind: string; payload: string }): Promise<void> {
+    // 屏蔽:来自被屏蔽者的信令直接丢弃(服务器已双向不中继,这里兜底)
+    const uid = userIdOf(d.from);
+    if (uid !== null && useSocial.getState().isBlocked(uid)) return;
     let peer = this.peers.get(d.from);
     if (!peer) {
       // an in-range peer started publishing to us

@@ -1,7 +1,7 @@
 import { encode, safeParse, PROTOCOL_VERSION, INPUT_RATE, packState } from '@nexuspark/shared';
 import type { S2CMap, SpaceInit } from '@nexuspark/shared';
 import { hot } from '../state/hot';
-import { useSession, useWorld, useChat, useUI, useVoice } from '../state/stores';
+import { useSession, useWorld, useChat, useUI, useVoice, useSettings, useSocial } from '../state/stores';
 
 type Handler<T extends keyof S2CMap> = (d: S2CMap[T]) => void;
 
@@ -129,6 +129,11 @@ class Connection {
         world.setEnv(w.env);
         this.stunServers = w.stun;
         this.applySpaceInit(w.space);
+        // 个人边界偏好(免抓取/屏蔽名单):连接与重连都要重发,服务器会话是新的
+        this.send('prefs', {
+          noGrab: useSettings.getState().noGrab,
+          blocked: useSocial.getState().blocked,
+        });
         if (!this.pingTimer) {
           this.pingTimer = setInterval(() => this.send('ping', { t: Date.now() }), 5000);
         }

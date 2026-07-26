@@ -13,7 +13,7 @@ import {
   GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE,
 } from '@nexuspark/shared';
 import { hot } from '../state/hot';
-import { useWorld, useUI, useSession, useVoice, useSettings } from '../state/stores';
+import { useWorld, useUI, useSession, useVoice, useSettings, useSocial } from '../state/stores';
 import { connection } from '../net/connection';
 import { Avatar, type AvatarHandle } from './Avatar';
 import ScreenBillboard from './ScreenBillboard';
@@ -300,8 +300,10 @@ export default function LocalPlayer() {
     if (!inputBlocked && l.grabbing == null && l.grabbedBy == null && !l.seatId) {
       const ffx = -Math.sin(hot.camera.yaw), ffz = -Math.cos(hot.camera.yaw);
       let candScore = Infinity;
+      const blocked = useSocial.getState().blocked;
       for (const e of hot.players.values()) {
         if (e.profile.isNpc) continue; // 第一阶段:只抓玩家团子
+        if (blocked.includes(e.profile.userId)) continue; // 屏蔽对象不作为抓取候选
         const dx = e.x - l.x, dz = e.z - l.z;
         const d = Math.hypot(dx, dz, e.y - l.y);
         if (d > GRAB_RANGE || d < 0.05) continue;

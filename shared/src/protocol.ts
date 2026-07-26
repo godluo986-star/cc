@@ -113,6 +113,11 @@ export const c2s = {
     point: z.tuple([finite, finite, finite]).optional(), // start:目标身体局部抓取点(|p|≤0.6)
     target: z.tuple([finite, finite, finite]).optional(), // move:抓取者期望的把持点世界坐标(15Hz 随 input 节流)
   }),
+  /** 个人边界偏好:免抓取 + 屏蔽名单(按 userId;服务器据此拒抓/断信令中继)。 */
+  prefs: z.object({
+    noGrab: z.boolean().optional(),
+    blocked: z.array(z.number().int().positive()).max(200).optional(),
+  }),
   elevator_list: z.object({}),
   ping: z.object({ t: z.number() }),
 } as const;

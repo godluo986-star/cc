@@ -704,6 +704,11 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         const t = world.sessionsById.get(d.targetId);
         if (!t || t.closed || t.spaceKey !== s.spaceKey) { toast(s, 'warn', '那位团子不在这里。'); return; }
         if (t.noGrab) { toast(s, 'warn', '对方开启了免抓保护。'); return; }
+        // 屏蔽是双向硬边界:被屏蔽者不能抓,屏蔽者也别去抓(提示语不点破屏蔽关系)
+        if (t.blockedUsers.has(s.user.id) || s.blockedUsers.has(t.user.id)) {
+          toast(s, 'warn', '抓不住 TA。');
+          return;
+        }
         if (t.grabbedBy !== null) { toast(s, 'warn', 'TA 已经被别的团子抓住啦。'); return; }
         if (t.grabbing !== null) { toast(s, 'warn', 'TA 正抓着别人,拉不动。'); return; }
         if (dist3d(s.x, s.y, s.z, t.x, t.y, t.z) > GRAB_RANGE) { toast(s, 'warn', '距离太远,够不着。'); return; }
@@ -858,7 +863,15 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!worldLink && target.spaceKey !== s.spaceKey) return;
     // a link is legitimate when either end is publishing media (mic or screen)
     if (!worldLink && !(s.voiceOn || s.screenOn) && !(target.voiceOn || target.screenOn)) return;
+    // 屏蔽对之间不中继信令:语音/屏幕链路从服务器层面断开(双向)
+    if (target.blockedUsers.has(s.user.id) || s.blockedUsers.has(target.user.id)) return;
     send(target, 'rtc', { from: s.id, kind: d.kind, payload: d.payload });
+  },
+
+  prefs(world, s, d: C2SPayload<'prefs'>) {
+    if (!s.buckets.generic.take()) return;
+    if (d.noGrab !== undefined) s.noGrab = d.noGrab;
+    if (d.blocked !== undefined) s.blockedUsers = new Set(d.blocked.slice(0, 200));
   },
 
   elevator_list(world, s) {

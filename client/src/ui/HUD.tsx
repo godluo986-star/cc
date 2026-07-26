@@ -1,6 +1,6 @@
 /** DOM overlay: top bar, chat, prompt, toasts, dock, dialogue, panel router. */
 import { useEffect, useState, type ReactNode } from 'react';
-import { useSession, useUI, useWorld, useVoice, type PanelKind } from '../state/stores';
+import { useSession, useUI, useWorld, useVoice, useSocial, type PanelKind } from '../state/stores';
 import { connection } from '../net/connection';
 import { hot } from '../state/hot';
 import { voice } from '../voice/voice';
@@ -116,16 +116,62 @@ function Roster() {
   const voiceRoster = useWorld((s) => s.voiceRoster);
   const worldVoice = useWorld((s) => s.voiceWorldRoster);
   const label = useWorld((s) => s.label);
+  const social = useSocial();
+  const [openFor, setOpenFor] = useState<number | null>(null);
   return (
     <div className="roster panel">
       <div className="title" style={{ fontSize: 13, marginBottom: 6 }}>{label} · {roster.filter((r) => !r.isNpc).length} 人在场</div>
-      {roster.map((p) => (
-        <div key={p.id} className="roster-line">
-          <span className={`roster-dot ${p.isNpc ? 'npc' : ''}`} />
-          <span style={{ flex: 1 }}>{p.username}{p.id === hot.selfId ? '(我)' : ''}</span>
-          {worldVoice.includes(p.id) ? <span>📢</span> : voiceRoster.includes(p.id) && <span>🎙</span>}
-        </div>
-      ))}
+      {roster.map((p) => {
+        const self = p.id === hot.selfId;
+        const isBlocked = !p.isNpc && social.blocked.includes(p.userId);
+        const isMuted = !p.isNpc && social.muted.includes(p.userId);
+        return (
+          <div key={p.id}>
+            <div
+              className="roster-line"
+              style={{ cursor: p.isNpc || self ? 'default' : 'pointer', opacity: isBlocked ? 0.5 : 1 }}
+              onClick={() => { if (!p.isNpc && !self) setOpenFor(openFor === p.id ? null : p.id); }}
+              title={p.isNpc || self ? undefined : '点击调整音量 / 静音 / 屏蔽'}
+            >
+              <span className={`roster-dot ${p.isNpc ? 'npc' : ''}`} />
+              <span style={{ flex: 1 }}>{p.username}{self ? '(我)' : ''}</span>
+              {isBlocked && <span title="已屏蔽">🚫</span>}
+              {!isBlocked && isMuted && <span title="已静音">🔇</span>}
+              {!isBlocked && !isMuted && (worldVoice.includes(p.id) ? <span>📢</span> : voiceRoster.includes(p.id) && <span>🎙</span>)}
+            </div>
+            {openFor === p.id && !p.isNpc && !self && (
+              <div className="col" style={{ padding: '4px 6px 8px 18px', gap: 5, fontSize: 12 }}>
+                <label className="row" style={{ gap: 6 }}>
+                  音量
+                  <input
+                    type="range" min={0} max={1.5} step={0.05}
+                    value={social.volumes[p.userId] ?? 1}
+                    disabled={isBlocked || isMuted}
+                    onChange={(e) => social.setVolume(p.userId, Number(e.target.value))}
+                    style={{ flex: 1 }}
+                  />
+                </label>
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="btn small" onClick={() => social.toggleMute(p.userId)}>
+                    {isMuted ? '取消静音' : '🔇 静音 TA'}
+                  </button>
+                  <button
+                    className={`btn small ${isBlocked ? '' : 'ghost'}`}
+                    title="屏蔽:互相听不到、看不到发言、不能互相抓取"
+                    onClick={() => {
+                      social.toggleBlock(p.userId);
+                      // 服务器立即生效(拒抓 + 断信令中继);语音链下轮 reconcile 拆
+                      connection.send('prefs', { blocked: useSocial.getState().blocked });
+                    }}
+                  >
+                    {isBlocked ? '解除屏蔽' : '🚫 屏蔽 TA'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

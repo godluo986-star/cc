@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { useChat } from '../state/stores';
+import { useChat, useSocial, useWorld } from '../state/stores';
 import { hot } from '../state/hot';
 import { connection } from '../net/connection';
 import { CHAT_MAX_LEN } from '@nexuspark/shared';
 
 export default function ChatPanel() {
-  const messages = useChat((s) => s.messages);
+  const allMessages = useChat((s) => s.messages);
+  const blocked = useSocial((s) => s.blocked);
+  const roster = useWorld((s) => s.roster);
+  // 屏蔽者的发言不显示(按 userId;发言者已离场则无法映射,照常显示)
+  const messages = allMessages.filter((m) => {
+    if (m.system) return true;
+    const uid = roster.find((p) => p.id === m.fromId)?.userId;
+    return uid === undefined || !blocked.includes(uid);
+  });
   const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

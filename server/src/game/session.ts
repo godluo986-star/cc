@@ -37,8 +37,10 @@ export interface Session {
   escapeDir: [number, number, number];
   /** 松手/挣脱后的自由抛落阶段(落地即恢复正常输入位移)。 */
   grabAirborne: boolean;
-  /** 免抓保护(后续设置项;默认 false)。 */
+  /** 免抓保护(设置项;默认 false)。 */
   noGrab: boolean;
+  /** 屏蔽名单(userId):屏蔽者不能抓我,双方之间不中继 RTC 信令。 */
+  blockedUsers: Set<number>;
   buckets: {
     input: TokenBucket;
     chat: TokenBucket;
@@ -76,6 +78,7 @@ export function createSession(ws: WebSocket, user: AuthUser): Session {
     escapeDir: [0, 0, 0],
     grabAirborne: false,
     noGrab: false,
+    blockedUsers: new Set(),
     buckets: {
       input: new TokenBucket(30, 60),
       chat: new TokenBucket(0.8, 4),

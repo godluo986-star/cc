@@ -201,3 +201,48 @@ describe('grab: lifecycle teardown', () => {
     expect(st[st.length - 1].phase).toBe('released');
   });
 });
+
+describe('personal boundaries (prefs)', () => {
+  it('noGrab pref rejects grab attempts', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    const b = mkSession('bob');
+    world.join(a.session, SPACE.PLAZA);
+    world.join(b.session, SPACE.PLAZA);
+    b.session.x = a.session.x + 1; b.session.z = a.session.z;
+    handlers.prefs(world, b.session, { noGrab: true });
+    handlers.grab(world, a.session, { op: 'start', targetId: b.session.id, point: [0.4, 0, 0] });
+    expect(a.session.grabbing).toBe(null);
+    expect(b.session.grabbedBy).toBe(null);
+    // 关掉后可以抓
+    handlers.prefs(world, b.session, { noGrab: false });
+    handlers.grab(world, a.session, { op: 'start', targetId: b.session.id, point: [0.4, 0, 0] });
+    expect(a.session.grabbing).toBe(b.session.id);
+  });
+
+  it('blocked users cannot grab you and rtc relay is dropped both ways', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    const b = mkSession('bob');
+    world.join(a.session, SPACE.PLAZA);
+    world.join(b.session, SPACE.PLAZA);
+    b.session.x = a.session.x + 1; b.session.z = a.session.z;
+    // b 屏蔽 a
+    handlers.prefs(world, b.session, { blocked: [a.session.user.id] });
+    handlers.grab(world, a.session, { op: 'start', targetId: b.session.id, point: [0.4, 0, 0] });
+    expect(a.session.grabbing).toBe(null);
+    // 语音信令双向都不中继
+    handlers.voice_state(world, a.session, { on: true });
+    handlers.voice_state(world, b.session, { on: true });
+    const bBefore = b.ws.sent.filter((m) => m.t === 'rtc').length;
+    handlers.rtc(world, a.session, { to: b.session.id, kind: 'offer', payload: '{}' });
+    expect(b.ws.sent.filter((m) => m.t === 'rtc').length).toBe(bBefore);
+    const aBefore = a.ws.sent.filter((m) => m.t === 'rtc').length;
+    handlers.rtc(world, b.session, { to: a.session.id, kind: 'offer', payload: '{}' });
+    expect(a.ws.sent.filter((m) => m.t === 'rtc').length).toBe(aBefore);
+    // 解除屏蔽后恢复
+    handlers.prefs(world, b.session, { blocked: [] });
+    handlers.rtc(world, a.session, { to: b.session.id, kind: 'offer', payload: '{}' });
+    expect(b.ws.sent.filter((m) => m.t === 'rtc').length).toBe(bBefore + 1);
+  });
+});

@@ -36,6 +36,18 @@ export function SettingsPanel() {
         <Toggle label="云朵" k="clouds" />
         {/* 被抓着升降时进一步钳制相机高度变化速率(第一人称防晕) */}
         <Toggle label="减少镜头运动" k="reduceMotion" />
+        {/* 个人边界:服务器强制,别人抓不起我(prefs 消息即时同步) */}
+        <label className="row" style={{ fontSize: 13 }} title="开启后其他团子无法把你抓起来">
+          <input
+            type="checkbox"
+            checked={s.noGrab}
+            onChange={(e) => {
+              s.set({ noGrab: e.target.checked });
+              connection.send('prefs', { noGrab: e.target.checked });
+            }}
+          />
+          免抓取(别人抓不起我)
+        </label>
       </div>
       <hr className="hr" />
       <div className="title" style={{ fontSize: 13 }}>音量</div>
