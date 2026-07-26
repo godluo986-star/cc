@@ -80,24 +80,24 @@ export class World {
   // ── Membership ────────────────────────────────────────────────────────────
   /** Validates that `session` may enter `target` from its current space. */
   canSwitch(session: Session, target: string): { ok: true } | { ok: false; reason: string } {
-    if (target === session.spaceKey) return { ok: false, reason: 'Already there.' };
+    if (target === session.spaceKey) return { ok: false, reason: '你已经在这里啦。' };
     if (target === SPACE.PLAZA) return { ok: true }; // always allowed (safety hatch)
     if (isRoomSpace(target)) {
       const ownerId = roomOwnerId(target);
-      if (!ownerId) return { ok: false, reason: 'Bad room id.' };
+      if (!ownerId) return { ok: false, reason: '房间编号不对。' };
       if (session.spaceKey !== SPACE.LOBBY && session.spaceKey !== target) {
-        return { ok: false, reason: 'Use the tower elevator to visit rooms.' };
+        return { ok: false, reason: '拜访房间要坐团子塔的电梯。' };
       }
       if (ownerId === session.user.id) return { ok: true };
       const room = this.spaces.get(target)?.roomData ?? loadRoom(this.db, ownerId);
-      if (!room) return { ok: false, reason: 'That room does not exist.' };
-      if (room.visibility === 'private') return { ok: false, reason: 'That room is private.' };
+      if (!room) return { ok: false, reason: '这个房间不存在。' };
+      if (room.visibility === 'private') return { ok: false, reason: '这个房间是私密的。' };
       return { ok: true };
     }
-    if (!LAYOUTS[target]) return { ok: false, reason: 'Unknown destination.' };
+    if (!LAYOUTS[target]) return { ok: false, reason: '不认识的目的地。' };
     const current = this.spaces.get(session.spaceKey);
     const hasDoor = current?.layout.interactables.some((i) => i.kind === 'door' && i.data?.target === target);
-    if (!hasDoor) return { ok: false, reason: 'No door leads there from here.' };
+    if (!hasDoor) return { ok: false, reason: '这里没有通往那边的门。' };
     return { ok: true };
   }
 
@@ -114,7 +114,7 @@ export class World {
     space.broadcast('player_join', { profile: profileOf(session) }, session);
     space.broadcast('voice_roster', { ids: space.voiceRoster() });
     space.broadcast('screen_roster', { ids: space.screenRoster() });
-    this.systemChat(space, `${session.user.username} arrived`);
+    this.systemChat(space, `${session.user.username} 来了`);
     return this.buildSpaceInit(space, session);
   }
 
@@ -129,7 +129,7 @@ export class World {
     space.broadcast('player_leave', { id: session.id, reason });
     space.broadcast('voice_roster', { ids: space.voiceRoster() });
     space.broadcast('screen_roster', { ids: space.screenRoster() });
-    this.systemChat(space, `${session.user.username} left`);
+    this.systemChat(space, `${session.user.username} 离开了`);
     if (space.sessions.size === 0) space.emptySince = Date.now();
   }
 
@@ -234,6 +234,8 @@ export class World {
       games: {
         tictactoe: [...space.ttt.values()].map((t) => space.tttPublic(t)),
         lightsout: [...space.lo.values()].map((l) => space.loPublic(l)),
+        xiangqi: [...space.xq.values()].map((t) => t.publicState()),
+        mahjong: [...space.mj.values()].map((t) => t.viewFor(session)),
       },
       voiceRoster: space.voiceRoster(),
       screenRoster: space.screenRoster(),
@@ -285,6 +287,14 @@ export class World {
       if (space.sessions.size > 0) {
         space.tickNpcs(dt, now);
         space.tickBall(dt);
+        for (const table of space.mj.values()) {
+          if (table.tick(now)) {
+            space.broadcastMahjong(table);
+            for (const ev of table.drainEvents()) {
+              if (ev.kind === 'finish') this.settleMahjong(space, table, ev.winnerSeat, ev.winKind, ev.reward);
+            }
+          }
+        }
         const snap = space.buildSnapshot(now);
         const raw = encode('snap', { t: now, ...snap });
         for (const s of space.sessions) sendRaw(s, raw);
@@ -312,6 +322,19 @@ export class World {
       if (final) {
         for (const s of space.sessions) this.persistSessionPos(s);
       }
+    }
+  }
+
+  /** 结算麻将胡牌:发彩头 + 系统播报。 */
+  settleMahjong(space: Space, table: Space['mj'] extends Map<string, infer T> ? T : never, winnerSeat: number, winKind: string, reward: number): void {
+    const seat = table.seats[winnerSeat];
+    const kindText = winKind === 'sanjindao' ? '三金倒!' : winKind === 'zimo' ? '自摸' : '胡牌';
+    if (seat.session) {
+      this.db.prepare('UPDATE users SET credits = credits + ? WHERE id = ?').run(reward, seat.session.user.id);
+      send(seat.session, 'self_update', this.buildSelfState(seat.session));
+      this.systemChat(space, `${seat.session.user.username} ${kindText} 赢了 ${reward} 金币!`);
+    } else {
+      this.systemChat(space, `机器人${kindText},下次加油!`);
     }
   }
 

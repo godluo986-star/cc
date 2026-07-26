@@ -96,13 +96,13 @@ export default function WhiteboardPanel({ boardId }: { boardId: string }) {
           />
         ))}
         <select className="input" style={{ width: 110 }} value={width} onChange={(e) => setWidth(Number(e.target.value))}>
-          <option value={0.003}>Fine</option>
-          <option value={0.006}>Medium</option>
-          <option value={0.014}>Thick</option>
-          <option value={0.03}>Marker</option>
+          <option value={0.003}>细笔</option>
+          <option value={0.006}>中笔</option>
+          <option value={0.014}>粗笔</option>
+          <option value={0.03}>马克笔</option>
         </select>
         <div className="spacer" />
-        <button className="btn small danger" onClick={() => connection.send('wb_clear', { boardId })}>Clear board</button>
+        <button className="btn small danger" onClick={() => connection.send('wb_clear', { boardId })}>清空板子</button>
       </div>
     </div>
   );

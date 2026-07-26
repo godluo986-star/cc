@@ -56,7 +56,7 @@ export default function WorldApp() {
       {phase !== 'inworld' && (
         <div className="loading-overlay">
           <div className="spinner" />
-          <div className="dim">{reconnecting ? 'Reconnecting…' : 'Entering Nexus Park…'}</div>
+          <div className="dim">{reconnecting ? '正在重连…' : '正在进入团子广场…'}</div>
         </div>
       )}
       <div className="fade-overlay" style={{ opacity: fade ? 1 : 0 }} />

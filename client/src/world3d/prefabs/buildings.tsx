@@ -106,7 +106,7 @@ function ShellWithDoorway({ w, d, h, color, doorW = 1.7, doorH = 2.3 }: {
 }
 
 export function BldCafe({ position }: { position: [number, number, number] }) {
-  const sign = useMemo(() => signTexture('☕ The Daily Grind', '#ffc46b'), []);
+  const sign = useMemo(() => signTexture('☕ 研磨咖啡馆', '#ffc46b'), []);
   const signMat = useMemo(() => new THREE.MeshStandardMaterial({ map: sign, emissive: '#ffffff', emissiveMap: sign, emissiveIntensity: 1.2 }), [sign]);
   useNightGlow([signMat], 1.4);
   const awning = useMemo(() => new THREE.MeshStandardMaterial({ color: '#8f3b46', roughness: 0.8 }), []);
@@ -156,7 +156,7 @@ export function BldCafe({ position }: { position: [number, number, number] }) {
 }
 
 export function BldCinema({ position }: { position: [number, number, number] }) {
-  const sign = useMemo(() => signTexture('🎬 AURORA CINEMA', '#7ec8ff'), []);
+  const sign = useMemo(() => signTexture('🎬 极光影院', '#7ec8ff'), []);
   const signMat = useMemo(() => new THREE.MeshStandardMaterial({ map: sign, emissive: '#ffffff', emissiveMap: sign, emissiveIntensity: 1.6 }), [sign]);
   const bulbs = useMemo(() => new THREE.MeshStandardMaterial({ color: '#fff4d0', emissive: '#ffdf8a', emissiveIntensity: 1.6 }), []);
   useNightGlow([signMat, bulbs], 1.8);
@@ -198,7 +198,7 @@ export function BldCinema({ position }: { position: [number, number, number] }) 
 }
 
 export function BldArcade({ position }: { position: [number, number, number] }) {
-  const sign = useMemo(() => signTexture('🕹 PIXEL PALACE', '#ff5fd8'), []);
+  const sign = useMemo(() => signTexture('🕹 像素宫游戏厅', '#ff5fd8'), []);
   const signMat = useMemo(() => new THREE.MeshStandardMaterial({ map: sign, emissive: '#ffffff', emissiveMap: sign, emissiveIntensity: 1.7 }), [sign]);
   const neon = useMemo(() => new THREE.MeshStandardMaterial({ color: '#40e8ff', emissive: '#40e8ff', emissiveIntensity: 1.6 }), []);
   useNightGlow([signMat, neon], 2);
@@ -224,7 +224,7 @@ export function BldArcade({ position }: { position: [number, number, number] }) 
 }
 
 export function BldShop({ position }: { position: [number, number, number] }) {
-  const sign = useMemo(() => signTexture('🏪 GENERAL STORE', '#9dff8a'), []);
+  const sign = useMemo(() => signTexture('🏪 团子百货', '#9dff8a'), []);
   const signMat = useMemo(() => new THREE.MeshStandardMaterial({ map: sign, emissive: '#ffffff', emissiveMap: sign, emissiveIntensity: 1.3 }), [sign]);
   useNightGlow([signMat], 1.4);
   return (
@@ -256,7 +256,7 @@ export function BldTower({ position }: { position: [number, number, number] }) {
   });
   const body = useMemo(() => new THREE.MeshStandardMaterial({ color: '#8e94a3', roughness: 0.8 }), []);
   const floors = [1, 2, 3, 4, 5, 6];
-  const sign = useMemo(() => signTexture('NEXUS TOWER', '#cfe0ff', '#1a2233'), []);
+  const sign = useMemo(() => signTexture('团子塔', '#cfe0ff', '#1a2233'), []);
   return (
     <group position={position}>
       <ShellWithDoorway w={16} d={12} h={4.2} color="#8e94a3" doorW={2.4} doorH={2.6} />

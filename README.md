@@ -1,16 +1,34 @@
-# 🍡 Nexus Park
+# 🍡 团子广场 (Nexus Park)
 
 A persistent, multiplayer 3D world for the browser — a small metaverse where
 every player is a bouncy **dango** dumpling. Explore a plaza with a café,
 cinema, arcade, shop and park; watch synchronized videos and websites on
-in-world screens; play arcade games against other players; talk over
-proximity voice chat; and decorate a personal room that's saved forever.
+in-world screens; play Xiangqi and Fuzhou mahjong at real tables; share your
+screen to nearby friends; talk over proximity voice chat; and decorate a
+personal room that's saved forever. **The in-game UI is in Chinese (中文).**
 
 Everything is real, modeled 3D geometry rendered with Three.js — no flat
 image stand-ins — and every feature listed below is implemented and wired to
 the authoritative server.
 
-![Architecture](docs/architecture.md)
+## 中文快速上手
+
+```bash
+npm install        # 全部依赖只装在项目目录里
+npm run dev        # 开发模式:服务器 :8080 + 客户端 :5173
+# 打开 http://localhost:5173,注册或"游客进入"即可
+```
+
+一键部署(生产):`./deploy.sh`(裸机)或 `docker compose up -d --build`(容器),
+详见 [DEPLOY.md](DEPLOY.md)。
+
+**操作**:WASD 蹦跶,Shift 跑,空格跳,鼠标拖动转视角,E 互动,回车聊天,1–5 表情,
+Esc 关面板。右下角按钮:✏️ 房间编辑器(在自己房间时)、🎭 表情、🎙 就近语音、
+🖥️ 屏幕共享、🎒 背包、🍡 捏团子、⚙️ 设置。
+
+**好玩的**:咖啡馆有象棋桌和福州麻将桌(不能吃、开金、三金倒,缺人机器人陪打,
+旁观者能看到整张桌面);电影院银幕谁都能放网页/视频,进度全场同步;团子塔电梯
+可拜访所有人的房间;自己的小屋随便装修,永久保存。
 
 ---
 
@@ -24,8 +42,8 @@ the authoritative server.
 | **Personal rooms** | Every account gets a persistent room: place/move/recolor/delete 26 furniture types, wall/floor/ceiling colors, lighting presets (warm/cool/party), public/private access, owner-or-guests media policy — all server-persisted |
 | **Media screens** | Cinema screen + room TVs show **websites (iframe)**, **YouTube** (official embed, position-synced), or **direct video files** (synced). Local seek bar; server only relays tiny state — media streams to each client directly |
 | **Interactions** | Seats everywhere, sliding doors, light switches, shared whiteboards, message boards, synth jukebox (beat-synced for all listeners), vending machines + inventory, furniture-unlock economy, beach ball with physics, books, computer notes, wardrobe storage, mirrors |
-| **Games** | Two-player tic-tac-toe and solo Lights Out arcade cabinets with live spectator screens and a persistent high-score |
-| **Voice chat** | Proximity WebRTC mesh with HRTF spatial audio, speaking indicators, push-button mute |
+| **Games** | Xiangqi (象棋, full folk-rules move legality) and Fuzhou mahjong (福州麻将: no chi, pong/kong/hu, 开金 gold wilds, 三金倒 instant win, bot fill-ins, per-viewer hand redaction) on real 3D tables spectators can watch, plus two-player tic-tac-toe and Lights Out cabinets with live screens |
+| **Voice & screens** | Proximity WebRTC mesh with HRTF spatial audio and speaking indicators; low-bitrate screen sharing (≤640×360@10fps, ~350 kbps) that floats above your dango for nearby players |
 | **Audio** | Fully procedural: hop boings, UI chimes, wind/rain/birds/crickets ambience, three sequenced jukebox tracks — zero recorded assets |
 
 ## Quick start
@@ -47,6 +65,10 @@ multiplayer in action.
 npm run build        # builds client (vite) then server (esbuild)
 npm start            # serves everything on http://127.0.0.1:8080
 ```
+
+Or truly one command: **`./deploy.sh`** (installs, builds, generates
+secrets, starts; `--daemon` / `--systemd` / `--stop` variants), or
+**`docker compose up -d --build`**. See [DEPLOY.md](DEPLOY.md).
 
 The production server serves the built client itself — one process, one port.
 
@@ -76,7 +98,17 @@ npm test             # shared protocol tests + server suite (vitest)
 
 The server suite includes a real end-to-end test that boots the HTTP+WS
 stack, registers two accounts, and verifies movement snapshots and chat
-delivery over live WebSockets.
+delivery over live WebSockets, plus rules tests for xiangqi move legality
+and the mahjong win-checker (gold wilds, 三金倒).
+
+There is also a headless browser smoke test that walks the whole vertical
+slice (chat → café games → elevator → room editor → TV):
+
+```bash
+npm run build && npm start     # terminal 1
+npm i --no-save playwright     # once (kept out of project dependencies)
+node scripts/smoke.mjs         # terminal 2
+```
 
 ## Controls
 
@@ -142,6 +174,12 @@ are separate spaces, so only the space you're in is ever rendered.
   content by design.
 - No mobile touch controls yet; desktop browsers only.
 - Whiteboard history caps at 500 strokes per board (oldest fade out).
+- Fuzhou mahjong simplifications: no 游金/抢金, no scoring tables (flat
+  credit rewards), no added-kong; xiangqi is folk-rules (win by capturing
+  the general, flying-general allowed, no check/perpetual rules).
+- Screen sharing needs a secure origin (https or localhost) in most
+  browsers, same as microphone access.
+- In-world bookshelf texts remain in English (public-domain classics).
 - Server is a single Node process; fine for dozens of concurrent players,
   not built for thousands.
 

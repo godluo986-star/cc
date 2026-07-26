@@ -71,13 +71,13 @@ function useMenuTexture(): THREE.CanvasTexture {
     ctx.fillRect(0, 0, 512, 168);
     ctx.fillStyle = '#f2e2c8';
     ctx.font = '700 30px "Segoe UI", sans-serif';
-    ctx.fillText('MENU', 24, 42);
+    ctx.fillText('菜单', 24, 42);
     ctx.font = '20px "Segoe UI", sans-serif';
-    ctx.fillText('Espresso …… 5 cr', 24, 84);
-    ctx.fillText('Nexus Cola …… 4 cr', 24, 116);
-    ctx.fillText('Pizza slice …… 6 cr', 24, 148);
-    ctx.fillText('Ask Bea at the counter!', 280, 84);
-    ctx.fillText('Jukebox by the window ♪', 280, 116);
+    ctx.fillText('浓缩咖啡 …… 5 金币', 24, 84);
+    ctx.fillText('团子可乐 …… 4 金币', 24, 116);
+    ctx.fillText('披萨 …… 6 金币', 24, 148);
+    ctx.fillText('找吧台的 Bea 点单!', 280, 84);
+    ctx.fillText('窗边有点歌机 ♪', 280, 116);
     menuTex = new THREE.CanvasTexture(c);
     return menuTex;
   }, []);
@@ -202,18 +202,18 @@ export function Directory({ position, rotation }: { position: [number, number, n
     ctx.fillRect(0, 0, 384, 512);
     ctx.fillStyle = '#cfe0ff';
     ctx.font = '700 34px "Segoe UI", sans-serif';
-    ctx.fillText('NEXUS TOWER', 34, 60);
+    ctx.fillText('团 子 塔', 34, 60);
     ctx.font = '22px "Segoe UI", sans-serif';
     ctx.fillStyle = '#9aa7bd';
     const lines = [
-      ['G', 'Lobby · Mailroom'],
-      ['1+', 'Resident rooms'],
+      ['G', '大堂 · 信件房'],
+      ['1+', '住户房间'],
       ['', ''],
-      ['ℹ', 'Use the elevator to'],
-      ['', 'visit any public room.'],
+      ['ℹ', '乘电梯可以拜访'],
+      ['', '任何公开的房间。'],
       ['', ''],
-      ['♥', 'Your own room is'],
-      ['', 'always on the list.'],
+      ['♥', '你自己的房间'],
+      ['', '永远在列表里。'],
     ];
     lines.forEach(([a, b], i) => {
       ctx.fillStyle = '#38d9c3';

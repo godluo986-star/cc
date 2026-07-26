@@ -117,7 +117,7 @@ describe('personal rooms', () => {
     handlers.switch_space(world, b.session, { target: key });
     expect(b.session.spaceKey).toBe(SPACE.LOBBY); // denied
     const toast = lastOf(b.ws, 'toast');
-    expect(String(toast?.d.text)).toMatch(/private/i);
+    expect(String(toast?.d.text)).toMatch(/私密/);
   });
 
   it('placing premium furniture requires an unlock', () => {
@@ -182,7 +182,7 @@ describe('media sync', () => {
     const before = cinema.media!.url;
     handlers.media_set(world, a.session, { url: 'ftp://bad.example/file.mp4' });
     expect(cinema.media!.url).toBe(before);
-    expect(String(lastOf(a.ws, 'toast')?.d.text)).toMatch(/unsupported/i);
+    expect(String(lastOf(a.ws, 'toast')?.d.text)).toMatch(/不支持/);
   });
 
   it('classifies plain websites as embeddable sites', () => {
@@ -262,6 +262,86 @@ describe('arcade games', () => {
     const lo = world.spaces.get(SPACE.ARCADE)!.lo.get('lo1')!;
     expect(lo.session).toBe(a.session);
     expect(lo.grid.some((v) => v)).toBe(true);
+  });
+});
+
+describe('象棋 + 麻将牌桌', () => {
+  function cafeRig() {
+    const rig = testRig();
+    const a = rig.mkSession('alice');
+    const b = rig.mkSession('bob');
+    for (const p of [a, b]) {
+      rig.world.join(p.session, SPACE.PLAZA);
+      p.session.x = -30; p.session.z = -16.4;
+      handlers.switch_space(rig.world, p.session, { target: SPACE.CAFE });
+      p.session.x = -4.2; p.session.z = 3.2;
+    }
+    return { ...rig, a, b };
+  }
+
+  it('象棋:入座、走子、吃帅获胜', () => {
+    const { world, a, b } = cafeRig();
+    handlers.game_join(world, a.session, { machineId: 'cafe-xq' });
+    handlers.game_join(world, b.session, { machineId: 'cafe-xq' });
+    const table = world.spaces.get(SPACE.CAFE)!.xq.get('cafe-xq')!;
+    expect(table.players[0]).toBe(a.session);
+    expect(table.players[1]).toBe(b.session);
+    // 红兵进一(合法)
+    handlers.xq_move(world, a.session, { tableId: 'cafe-xq', from: 3 * 9 + 0, to: 4 * 9 + 0 });
+    expect(table.board[4 * 9 + 0]).toBe('P');
+    expect(table.turn).toBe(1);
+    // 黑方乱走(不合法,炮斜走)被拒绝
+    handlers.xq_move(world, b.session, { tableId: 'cafe-xq', from: 7 * 9 + 1, to: 6 * 9 + 2 });
+    expect(table.turn).toBe(1);
+  });
+
+  it('麻将:入座开局发牌、机器人补位', () => {
+    const { world, a } = cafeRig();
+    a.session.x = 4.2; a.session.z = 4.0;
+    handlers.mj_action(world, a.session, { tableId: 'cafe-mj', action: 'sit' });
+    const table = world.spaces.get(SPACE.CAFE)!.mj.get('cafe-mj')!;
+    expect(table.seatOf(a.session)).toBeGreaterThanOrEqual(0);
+    handlers.mj_action(world, a.session, { tableId: 'cafe-mj', action: 'start' });
+    expect(['playing', 'finished']).toContain(table.phase); // 起手三金倒时可能直接结束
+    if (table.phase === 'playing') {
+      expect(table.goldFace).toBeGreaterThanOrEqual(0);
+      const bots = table.seats.filter((s) => s.isBot).length;
+      expect(bots).toBe(3);
+      // 庄家(玩家)拿到 14 张
+      const mySeat = table.seats[table.seatOf(a.session)];
+      expect(mySeat.hand.length % 3).toBe(2);
+      // 私有视图只给自己手牌
+      const view = table.viewFor(a.session);
+      expect(view.priv?.hand.length).toBe(mySeat.hand.length);
+      const spectator = table.viewFor(null);
+      expect(spectator.priv).toBe(null);
+      expect(spectator.pub.seats[0].handCount).toBeGreaterThan(0);
+    }
+  });
+
+  it('麻将:机器人 tick 会推进牌局', () => {
+    const { world, a } = cafeRig();
+    a.session.x = 4.2; a.session.z = 4.0;
+    handlers.mj_action(world, a.session, { tableId: 'cafe-mj', action: 'sit' });
+    handlers.mj_action(world, a.session, { tableId: 'cafe-mj', action: 'start' });
+    const table = world.spaces.get(SPACE.CAFE)!.mj.get('cafe-mj')!;
+    if (table.phase !== 'playing') return; // 三金倒直接结束的罕见情况
+    // 玩家先随便打一张(自己是庄家)
+    const seat = table.seatOf(a.session);
+    if (table.turn === seat) {
+      const tile = table.seats[seat].hand.find((t) => t !== table.goldFace) ?? table.seats[seat].hand[0];
+      handlers.mj_action(world, a.session, { tableId: 'cafe-mj', action: 'discard', tile });
+    }
+    // 推进机器人若干拍
+    const start = Date.now();
+    for (let i = 0; i < 30 && (table.phase as string) === 'playing'; i++) {
+      table.nextActionAt = 0;
+      if (table.claim) table.claim.deadline = 0;
+      table.tick(start + i * 2000);
+    }
+    const totalDiscards = table.seats.reduce((n, s) => n + s.discards.length, 0)
+      + table.seats.reduce((n, s) => n + s.melds.length, 0);
+    expect(totalDiscards + ((table.phase as string) === 'finished' ? 1 : 0)).toBeGreaterThan(0);
   });
 });
 

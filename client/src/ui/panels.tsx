@@ -75,22 +75,22 @@ export function MediaPanel() {
       <div className="dim" style={{ fontSize: 13 }}>
         {media?.url ? (
           <>
-            Now showing (<b>{media.kind}</b>): <span style={{ wordBreak: 'break-all' }}>{media.url}</span>
-            <br />set by <b>{media.setBy ?? '—'}</b>
+            正在放映(<b>{media.kind === 'site' ? '网页' : media.kind === 'youtube' ? 'YouTube' : '视频'}</b>): <span style={{ wordBreak: 'break-all' }}>{media.url}</span>
+            <br />由 <b>{media.setBy ?? '—'}</b> 放上来的
           </>
         ) : (
-          'Nothing on screen. Put a website, YouTube link, or video file URL up for everyone in this space.'
+          '屏幕空着呢。放个网站、YouTube 或视频文件链接,这里的所有人都能一起看。'
         )}
       </div>
       {!canControl && (
-        <div className="dim">🔒 Only the room owner ({room?.ownerName}) can control this screen.</div>
+        <div className="dim">🔒 只有房主({room?.ownerName})能控制这块屏幕。</div>
       )}
       {canControl && (
         <>
           <div className="row">
             <input
               className="input"
-              placeholder="https://… (website, YouTube, or .mp4/.webm)"
+              placeholder="https://…(网站、YouTube 或 .mp4/.webm)"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => {
@@ -105,18 +105,18 @@ export function MediaPanel() {
               disabled={!url.trim()}
               onClick={() => { connection.send('media_set', { url: url.trim(), loop }); setUrl(''); }}
             >
-              Show
+              放映
             </button>
           </div>
           <label className="row dim" style={{ fontSize: 12 }}>
             <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
-            loop videos
+            循环播放视频
           </label>
           {media?.url && isTimed && <SeekBar playing={media.playing} />}
           {media?.url && isTimed && (
             <div className="media-controls">
               <button className="btn small" onClick={() => connection.send('media_ctrl', { op: media.playing ? 'pause' : 'play' })}>
-                {media.playing ? '⏸ Pause' : '▶ Play'}
+                {media.playing ? '⏸ 暂停' : '▶ 播放'}
               </button>
               {[-30, -5, 5, 30].map((d) => (
                 <button key={d} className="btn small" onClick={() => connection.send('media_ctrl', { op: 'seek', value: Math.max(0, position + d) })}>
@@ -135,14 +135,13 @@ export function MediaPanel() {
           )}
           {media?.url && (
             <button className="btn small danger" style={{ alignSelf: 'flex-start' }} onClick={() => connection.send('media_ctrl', { op: 'clear' })}>
-              Clear screen
+              清空屏幕
             </button>
           )}
         </>
       )}
       <div className="dim" style={{ fontSize: 11 }}>
-        Sites that forbid embedding (X-Frame-Options) will stay blank — that's the site's choice, not a bug.
-        Everyone in the space sees the same screen; videos stay in sync.
+        有些网站禁止被嵌入(X-Frame-Options),会显示空白——那是网站的限制。同一空间的所有人看到同一块屏幕,视频进度自动同步;进度条读的是你本地播放器,拖动后会广播给大家。
       </div>
     </div>
   );
@@ -159,8 +158,8 @@ export function JukeboxPanel() {
   return (
     <div className="col">
       <div className="dim" style={{ fontSize: 13 }}>
-        Synth jukebox — everyone in this space hears the same beat, in sync.
-        {music?.trackId && <> Now playing: <b>{TRACKS.find((t) => t.id === music.trackId)?.name}</b> (queued by {music.setBy})</>}
+        合成器点歌机——同一空间的所有人听到同一拍,完全同步。
+        {music?.trackId && <> 正在播放:<b>{TRACKS.find((t) => t.id === music.trackId)?.name}</b>({music.setBy} 点的)</>}
       </div>
       {TRACKS.map((t) => (
         <div key={t.id} className="row">
@@ -171,12 +170,12 @@ export function JukeboxPanel() {
             className={`btn small ${music?.trackId === t.id ? 'primary' : ''}`}
             onClick={() => connection.send('music_set', { trackId: t.id })}
           >
-            {music?.trackId === t.id ? '▶ Playing' : 'Play'}
+            {music?.trackId === t.id ? '▶ 播放中' : '播放'}
           </button>
         </div>
       ))}
       <button className="btn small ghost" disabled={!music?.trackId} onClick={() => connection.send('music_set', { trackId: null })}>
-        ⏹ Stop music
+        ⏹ 停止音乐
       </button>
     </div>
   );
@@ -193,16 +192,16 @@ export function BoardPanel({ boardId }: { boardId: string }) {
     <div className="col">
       <div className="row">
         <input
-          className="input" placeholder="Pin a note…" value={text} maxLength={BOARD_POST_MAX_LEN}
+          className="input" placeholder="贴张纸条…" value={text} maxLength={BOARD_POST_MAX_LEN}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && text.trim()) { connection.send('board_post', { boardId, text: text.trim() }); setText(''); } }}
         />
         <button className="btn primary" disabled={!text.trim()} onClick={() => { connection.send('board_post', { boardId, text: text.trim() }); setText(''); }}>
-          Pin
+          贴上
         </button>
       </div>
       <div className="col" style={{ maxHeight: 320, overflowY: 'auto' }}>
-        {posts.length === 0 && <div className="dim">No notes yet — be the first!</div>}
+        {posts.length === 0 && <div className="dim">还没有纸条,来贴第一张!</div>}
         {posts.map((p) => (
           <div key={p.id} className="inv-row">
             <div style={{ flex: 1 }}>
@@ -230,7 +229,7 @@ export function TttPanel({ machineId }: { machineId: string }) {
   return (
     <div className="col" style={{ alignItems: 'center' }}>
       <div className="dim" style={{ fontSize: 13 }}>
-        ❌ {game.players[0]?.username ?? 'open seat'} vs ⭕ {game.players[1]?.username ?? 'open seat'}
+        ❌ {game.players[0]?.username ?? '虚位以待'} vs ⭕ {game.players[1]?.username ?? '虚位以待'}
       </div>
       <div className="ttt-grid">
         {game.board.map((cell, i) => (
@@ -246,18 +245,18 @@ export function TttPanel({ machineId }: { machineId: string }) {
       </div>
       <div style={{ minHeight: 22, fontSize: 14 }}>
         {game.winner === 0 && game.players[0] && game.players[1] && (
-          <span>{myTurn ? 'Your move!' : `${game.turn === 1 ? game.players[0]?.username : game.players[1]?.username} is thinking…`}</span>
+          <span>{myTurn ? '该你落子!' : `${game.turn === 1 ? game.players[0]?.username : game.players[1]?.username} 思考中…`}</span>
         )}
-        {game.winner === 0 && (!game.players[0] || !game.players[1]) && <span className="dim">Waiting for players…</span>}
-        {game.winner === 3 && <b>It's a draw!</b>}
+        {game.winner === 0 && (!game.players[0] || !game.players[1]) && <span className="dim">等待玩家入座…</span>}
+        {game.winner === 3 && <b>平局!</b>}
         {(game.winner === 1 || game.winner === 2) && (
-          <b>{game.winner === meIdx ? '🎉 You win!' : `${(game.winner === 1 ? game.players[0] : game.players[1])?.username} wins!`}</b>
+          <b>{game.winner === meIdx ? '🎉 你赢了!' : `${(game.winner === 1 ? game.players[0] : game.players[1])?.username} 赢了!`}</b>
         )}
       </div>
       <div className="row">
-        {!seated && <button className="btn primary" onClick={() => connection.send('game_join', { machineId })}>Take a seat</button>}
-        {seated && game.winner !== 0 && <button className="btn primary" onClick={() => connection.send('game_join', { machineId })}>Play again</button>}
-        {seated && <button className="btn ghost" onClick={() => connection.send('game_leave', { machineId })}>Leave game</button>}
+        {!seated && <button className="btn primary" onClick={() => connection.send('game_join', { machineId })}>入座</button>}
+        {seated && game.winner !== 0 && <button className="btn primary" onClick={() => connection.send('game_join', { machineId })}>再来一局</button>}
+        {seated && <button className="btn ghost" onClick={() => connection.send('game_leave', { machineId })}>离开游戏</button>}
       </div>
     </div>
   );
@@ -272,8 +271,8 @@ export function LightsOutPanel({ machineId }: { machineId: string }) {
   return (
     <div className="col" style={{ alignItems: 'center' }}>
       <div className="dim" style={{ fontSize: 13 }}>
-        Turn every light off. Pressing a cell toggles it and its neighbours.
-        {game.best !== null && <> · Record: <b>{game.best} moves</b></>}
+        把所有灯都关掉:按一格,它和上下左右会一起翻转。
+        {game.best !== null && <> · 纪录:<b>{game.best} 步</b></>}
       </div>
       <div className="lo-grid">
         {game.grid.map((on, i) => (
@@ -285,18 +284,18 @@ export function LightsOutPanel({ machineId }: { machineId: string }) {
         ))}
       </div>
       <div style={{ minHeight: 20, fontSize: 13 }}>
-        {game.playerId === null && <span className="dim">Free machine — start a puzzle!</span>}
-        {mine && <span>Moves: <b>{game.moves}</b></span>}
-        {game.playerId !== null && !mine && <span className="dim">{game.playerName} is playing (moves: {game.moves})</span>}
+        {game.playerId === null && <span className="dim">机器空闲,来开一局!</span>}
+        {mine && <span>步数:<b>{game.moves}</b></span>}
+        {game.playerId !== null && !mine && <span className="dim">{game.playerName} 正在玩(步数 {game.moves})</span>}
       </div>
       <div className="row">
         {!mine && game.playerId === null && (
-          <button className="btn primary" onClick={() => connection.send('game_join', { machineId })}>Start puzzle</button>
+          <button className="btn primary" onClick={() => connection.send('game_join', { machineId })}>开始解谜</button>
         )}
         {mine && (
           <>
-            <button className="btn" onClick={() => connection.send('game_join', { machineId })}>New puzzle</button>
-            <button className="btn ghost" onClick={() => connection.send('game_leave', { machineId })}>Walk away</button>
+            <button className="btn" onClick={() => connection.send('game_join', { machineId })}>换一局</button>
+            <button className="btn ghost" onClick={() => connection.send('game_leave', { machineId })}>不玩了</button>
           </>
         )}
       </div>
@@ -309,7 +308,7 @@ export function VendingPanel({ vendId, items }: { vendId: string; items: string[
   const self = useSession((s) => s.self);
   return (
     <div className="col">
-      <div className="dim" style={{ fontSize: 13 }}>Credits: <b>{self?.credits ?? 0}</b></div>
+      <div className="dim" style={{ fontSize: 13 }}>金币:<b>{self?.credits ?? 0}</b></div>
       {items.map((id) => {
         const item = ITEMS_BY_ID[id];
         if (!item) return null;
@@ -323,7 +322,7 @@ export function VendingPanel({ vendId, items }: { vendId: string; items: string[
               disabled={(self?.credits ?? 0) < item.price}
               onClick={() => { connection.send('buy', { itemId: id, source: vendId }); audio.vend(); }}
             >
-              Buy
+              购买
             </button>
           </div>
         );
@@ -339,8 +338,7 @@ export function KioskPanel() {
   return (
     <div className="col">
       <div className="dim" style={{ fontSize: 13 }}>
-        One-time unlocks for your room. Free furniture is always available in the room editor.
-        Credits: <b>{self?.credits ?? 0}</b>
+        一次解锁,永久拥有,随意摆进你的房间。免费家具在房间编辑器里直接就有。金币:<b>{self?.credits ?? 0}</b>
       </div>
       <div className="cat-grid">
         {premium.map((f) => {
@@ -350,7 +348,7 @@ export function KioskPanel() {
               <span className="ico">🛋️</span>
               <div>{f.name}</div>
               {owned ? (
-                <div className="dim" style={{ marginTop: 4 }}>✓ owned</div>
+                <div className="dim" style={{ marginTop: 4 }}>✓ 已拥有</div>
               ) : (
                 <button
                   className="btn small primary" style={{ marginTop: 6 }}
@@ -385,7 +383,7 @@ export function ElevatorPanel() {
   };
   return (
     <div className="col">
-      <div className="dim" style={{ fontSize: 13 }}>Pick a floor — every resident has a room.</div>
+      <div className="dim" style={{ fontSize: 13 }}>选一层吧——每位住户都有自己的房间。</div>
       <div className="col" style={{ maxHeight: 340, overflowY: 'auto' }}>
         {rooms.map((r) => (
           <div key={r.ownerId} className="inv-row">
@@ -393,14 +391,14 @@ export function ElevatorPanel() {
             <div style={{ flex: 1 }}>
               <div>{r.name}</div>
               <div className="dim" style={{ fontSize: 11 }}>
-                {r.ownerName}{r.ownerId === self?.userId ? ' (you)' : ''} · {r.online > 0 ? `${r.online} inside` : 'empty'}
-                {r.visibility === 'private' ? ' · private' : ''}
+                {r.ownerName}{r.ownerId === self?.userId ? '(我)' : ''} · {r.online > 0 ? `${r.online} 人在` : '空着'}
+                {r.visibility === 'private' ? ' · 私密' : ''}
               </div>
             </div>
-            <button className="btn small primary" onClick={() => go(r.ownerId)}>Visit</button>
+            <button className="btn small primary" onClick={() => go(r.ownerId)}>前往</button>
           </div>
         ))}
-        {rooms.length === 0 && <div className="dim">Loading directory…</div>}
+        {rooms.length === 0 && <div className="dim">目录加载中…</div>}
       </div>
     </div>
   );
@@ -416,7 +414,7 @@ export function BooksPanel() {
     return (
       <div className="col">
         <div className="row">
-          <button className="btn small ghost" onClick={() => { setBookId(null); setPage(0); }}>← Shelf</button>
+          <button className="btn small ghost" onClick={() => { setBookId(null); setPage(0); }}>← 书架</button>
           <span className="title">{book.title}</span>
         </div>
         <div className="dim" style={{ fontSize: 11 }}>{book.attribution}</div>
@@ -424,9 +422,9 @@ export function BooksPanel() {
           {pages[page]}
         </div>
         <div className="row">
-          <button className="btn small" disabled={page === 0} onClick={() => setPage(page - 1)}>← Prev</button>
-          <span className="dim" style={{ fontSize: 12 }}>page {page + 1} / {pages.length}</span>
-          <button className="btn small" disabled={page >= pages.length - 1} onClick={() => setPage(page + 1)}>Next →</button>
+          <button className="btn small" disabled={page === 0} onClick={() => setPage(page - 1)}>← 上页</button>
+          <span className="dim" style={{ fontSize: 12 }}>第 {page + 1} / {pages.length} 页</span>
+          <button className="btn small" disabled={page >= pages.length - 1} onClick={() => setPage(page + 1)}>下页 →</button>
         </div>
       </div>
     );
@@ -440,7 +438,7 @@ export function BooksPanel() {
             <div>{b.title}</div>
             <div className="dim" style={{ fontSize: 11 }}>{b.subtitle}</div>
           </div>
-          <span className="dim">read →</span>
+          <span className="dim">阅读 →</span>
         </div>
       ))}
     </div>
@@ -454,8 +452,8 @@ export function InventoryPanel() {
   const entries = self.inventory.filter((e) => e.qty > 0);
   return (
     <div className="col">
-      <div className="dim" style={{ fontSize: 13 }}>Credits: <b>{self.credits}</b> · daily bonus on first login each day</div>
-      {entries.length === 0 && <div className="dim">Empty. Vending machines are in the shop, arcade, lobby and cinema.</div>}
+      <div className="dim" style={{ fontSize: 13 }}>金币:<b>{self.credits}</b> · 每天第一次登录有奖励</div>
+      {entries.length === 0 && <div className="dim">背包空空。商店、游戏厅、大堂和电影院都有贩卖机。</div>}
       {entries.map((e) => {
         const item = ITEMS_BY_ID[e.itemId];
         if (!item) return null;
@@ -475,7 +473,7 @@ export function InventoryPanel() {
                   audio.chime(true);
                 }}
               >
-                {item.kind === 'consumable' ? 'Enjoy' : 'Hold'}
+                {item.kind === 'consumable' ? '享用' : '拿在手上'}
               </button>
             )}
           </div>
@@ -483,7 +481,7 @@ export function InventoryPanel() {
       })}
       {hot.local.held !== 0 && (
         <button className="btn small ghost" onClick={() => { hot.local.held = 0; hot.local.heldUntil = 0; connection.sendInput(true); }}>
-          Put item away
+          收起手里的东西
         </button>
       )}
     </div>
@@ -502,7 +500,7 @@ export function NotesPanel() {
   return (
     <div className="col">
       <div className="dim" style={{ fontSize: 13 }}>
-        {isOwner ? 'Your in-world notes — shown on the computer screen.' : `${room.ownerName}'s notes:`}
+        {isOwner ? '你的小屋笔记——会显示在电脑屏幕上。' : `${room.ownerName} 的笔记:`}
       </div>
       <textarea
         className="input" rows={9} value={text} maxLength={NOTES_MAX_LEN}
@@ -514,7 +512,7 @@ export function NotesPanel() {
           className="btn primary" disabled={saved}
           onClick={() => { connection.send('room_edit', { op: 'notes', text }); setSaved(true); }}
         >
-          {saved ? 'Saved ✓' : 'Save notes'}
+          {saved ? '已保存 ✓' : '保存笔记'}
         </button>
       )}
     </div>
@@ -528,31 +526,31 @@ export function StoragePanel({ objectId }: { objectId: number }) {
   const obj = room?.objects.find((o) => o.id === objectId);
   const isOwner = room?.ownerId === self?.userId;
   const stash = (obj?.state.stash ?? {}) as Record<string, number>;
-  if (!obj) return <div className="dim">The wardrobe is gone.</div>;
-  if (!isOwner) return <div className="dim">It's not polite to rummage in someone else's wardrobe.</div>;
+  if (!obj) return <div className="dim">衣柜不见了。</div>;
+  if (!isOwner) return <div className="dim">随便翻别人的衣柜可不礼貌哦。</div>;
   const stashEntries = Object.entries(stash).filter(([, q]) => q > 0);
   const invEntries = (self?.inventory ?? []).filter((e) => e.qty > 0);
   return (
     <div className="grid2">
       <div className="col">
-        <div className="title" style={{ fontSize: 13 }}>Wardrobe</div>
-        {stashEntries.length === 0 && <div className="dim" style={{ fontSize: 12 }}>Empty shelves.</div>}
+        <div className="title" style={{ fontSize: 13 }}>衣柜</div>
+        {stashEntries.length === 0 && <div className="dim" style={{ fontSize: 12 }}>空空如也。</div>}
         {stashEntries.map(([id, q]) => (
           <div key={id} className="inv-row">
             <span>{ITEMS_BY_ID[id]?.icon}</span>
             <span style={{ flex: 1, fontSize: 13 }}>{ITEMS_BY_ID[id]?.name} ×{q}</span>
-            <button className="btn small" onClick={() => connection.send('stash', { objectId, itemId: id, dir: 'toInventory' })}>Take →</button>
+            <button className="btn small" onClick={() => connection.send('stash', { objectId, itemId: id, dir: 'toInventory' })}>取出 →</button>
           </div>
         ))}
       </div>
       <div className="col">
-        <div className="title" style={{ fontSize: 13 }}>Your pockets</div>
-        {invEntries.length === 0 && <div className="dim" style={{ fontSize: 12 }}>Nothing to store.</div>}
+        <div className="title" style={{ fontSize: 13 }}>随身背包</div>
+        {invEntries.length === 0 && <div className="dim" style={{ fontSize: 12 }}>没有可存放的东西。</div>}
         {invEntries.map((e) => (
           <div key={e.itemId} className="inv-row">
             <span>{ITEMS_BY_ID[e.itemId]?.icon}</span>
             <span style={{ flex: 1, fontSize: 13 }}>{ITEMS_BY_ID[e.itemId]?.name} ×{e.qty}</span>
-            <button className="btn small" onClick={() => connection.send('stash', { objectId, itemId: e.itemId, dir: 'toStash' })}>← Store</button>
+            <button className="btn small" onClick={() => connection.send('stash', { objectId, itemId: e.itemId, dir: 'toStash' })}>← 存入</button>
           </div>
         ))}
       </div>

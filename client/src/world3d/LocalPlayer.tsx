@@ -271,13 +271,13 @@ export default function LocalPlayer() {
       if (e.profile.isNpc) {
         consider({
           id: `npc:${e.id}`, kind: 'npc', x: e.x, y: 0.5, z: e.z, ry: 0,
-          label: `Talk to ${e.profile.username}`, data: { npcId: e.id },
+          label: `和 ${e.profile.username} 聊聊`, data: { npcId: e.id },
         });
       }
     }
     // dynamic: beach ball
     if (hot.ball.active && dist2d(px, pz, hot.ball.x, hot.ball.z) < 2.1) {
-      consider({ id: 'ball', kind: 'ball', x: hot.ball.x, y: 0.3, z: hot.ball.z, ry: 0, label: 'Kick the ball' });
+      consider({ id: 'ball', kind: 'ball', x: hot.ball.x, y: 0.3, z: hot.ball.z, ry: 0, label: '踢一脚沙滩球' });
     }
     currentTarget.current = best;
     ui.setPrompt(best ? { label: labelFor(best), key: 'E' } : null);

@@ -20,6 +20,7 @@ import {
 } from '../prefabs/interactive';
 import MediaScreen from '../media/MediaScreen';
 import { Bookshelf } from '../prefabs/furniture';
+import { XiangqiTablePrefab, MahjongTablePrefab } from '../prefabs/gameTables';
 
 export function renderProp(p: Prop, key: string | number): ReactNode {
   const pos = p.pos;
@@ -107,6 +108,10 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
         </mesh>
       </group>
     );
+    case 'xiangqi':
+      return <XiangqiTablePrefab key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} tableId={it.id} />;
+    case 'mahjong':
+      return <MahjongTablePrefab key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} tableId={it.id} />;
     case 'seat':
     default:
       return null;

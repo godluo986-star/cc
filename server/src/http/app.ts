@@ -33,37 +33,37 @@ export function createApp(auth: AuthService): express.Express {
   app.get('/healthz', (_req, res) => { res.json({ ok: true }); });
 
   app.post('/api/register', (req, res) => {
-    if (!registerLimiter.take(ip(req))) { res.status(429).json({ error: 'Too many registrations — try again later.' }); return; }
+    if (!registerLimiter.take(ip(req))) { res.status(429).json({ error: '注册太频繁,稍后再试。' }); return; }
     const { username, password } = req.body ?? {};
     try {
       res.json(auth.register(String(username ?? ''), String(password ?? '')));
     } catch (e) {
       if (e instanceof AuthError) { res.status(400).json({ error: e.message, code: e.code }); return; }
       log.error('register failed', e);
-      res.status(500).json({ error: 'Registration failed.' });
+      res.status(500).json({ error: '注册失败了。' });
     }
   });
 
   app.post('/api/login', (req, res) => {
-    if (!loginLimiter.take(ip(req))) { res.status(429).json({ error: 'Too many attempts — wait a moment.' }); return; }
+    if (!loginLimiter.take(ip(req))) { res.status(429).json({ error: '尝试太频繁,休息一下。' }); return; }
     const { username, password } = req.body ?? {};
     try {
       res.json(auth.login(String(username ?? ''), String(password ?? '')));
     } catch (e) {
       if (e instanceof AuthError) { res.status(401).json({ error: e.message, code: e.code }); return; }
       log.error('login failed', e);
-      res.status(500).json({ error: 'Login failed.' });
+      res.status(500).json({ error: '登录失败了。' });
     }
   });
 
   app.post('/api/guest', (req, res) => {
-    if (!registerLimiter.take(ip(req))) { res.status(429).json({ error: 'Too many guest sessions — try again later.' }); return; }
+    if (!registerLimiter.take(ip(req))) { res.status(429).json({ error: '游客创建太频繁,稍后再试。' }); return; }
     try {
       res.json(auth.guest());
     } catch (e) {
       if (e instanceof AuthError) { res.status(400).json({ error: e.message, code: e.code }); return; }
       log.error('guest failed', e);
-      res.status(500).json({ error: 'Guest login failed.' });
+      res.status(500).json({ error: '游客登录失败了。' });
     }
   });
 
@@ -74,7 +74,7 @@ export function createApp(auth: AuthService): express.Express {
       const user = auth.verifyToken(token);
       res.json({ user: { id: user.id, username: user.username, avatar: user.avatar, credits: user.credits, isGuest: user.isGuest } });
     } catch {
-      res.status(401).json({ error: 'Invalid session.' });
+      res.status(401).json({ error: '登录状态无效。' });
     }
   });
 

@@ -51,13 +51,13 @@ export default function ChatPanel() {
             )}
           </div>
         ))}
-        {messages.length === 0 && <div className="chat-line sys">Say hi — press Enter to chat.</div>}
+        {messages.length === 0 && <div className="chat-line sys">按回车打个招呼吧~</div>}
       </div>
       <div className="chat-input-row">
         <input
           ref={inputRef}
           className="input"
-          placeholder="Press Enter to chat…"
+          placeholder="按回车聊天…"
           value={text}
           maxLength={CHAT_MAX_LEN}
           onChange={(e) => setText(e.target.value)}

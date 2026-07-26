@@ -298,12 +298,12 @@ export function Computer({ color, state }: FurnProps) {
     ctx.fillRect(0, 0, 256, 160);
     ctx.fillStyle = '#38d9c3';
     ctx.font = '600 13px monospace';
-    ctx.fillText('nexus-os — notes', 10, 20);
+    ctx.fillText('团子OS · 笔记', 10, 20);
     ctx.strokeStyle = '#233246';
     ctx.strokeRect(6, 8, 244, 144);
     ctx.fillStyle = '#9fd8cf';
     ctx.font = '11px monospace';
-    const lines = (notes || 'The owner can leave notes here…').split('\n').slice(0, 8);
+    const lines = (notes || '主人还没写笔记…').split('\n').slice(0, 8);
     lines.forEach((l, i) => ctx.fillText(l.slice(0, 34), 10, 40 + i * 14));
     const t = new THREE.CanvasTexture(c);
     return t;

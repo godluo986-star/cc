@@ -13,6 +13,8 @@ import { loadRoom } from './roomService';
 import type { Session } from './session';
 import { sendRaw, send } from './session';
 import { encode } from '@nexuspark/shared';
+import { XiangqiTable } from './xiangqiTable';
+import { MahjongTable } from './mahjongTable';
 
 export interface SeatDef { x: number; y: number; z: number; ry: number; }
 
@@ -62,6 +64,8 @@ export class Space {
   colliders: Collider[] = [];
   ttt = new Map<string, TttInternal>();
   lo = new Map<string, LoInternal>();
+  xq = new Map<string, XiangqiTable>();
+  mj = new Map<string, MahjongTable>();
   emptySince = Date.now();
   /** True if this space supports a synchronized media screen. */
   readonly hasScreen: boolean;
@@ -111,6 +115,8 @@ export class Space {
             best: kvGet(this.db, `lo-best:${i.id}`, null as { name: string; moves: number } | null),
           });
         }
+        if (i.kind === 'xiangqi') this.xq.set(i.id, new XiangqiTable(i.id));
+        if (i.kind === 'mahjong') this.mj.set(i.id, new MahjongTable(i.id));
       }
       this.npcs = layout.npcs.map((def) => ({
         def, x: def.waypoints[0][0], z: def.waypoints[0][1], ry: 0, wpIdx: 0, pauseUntil: 0, moving: false,
@@ -357,8 +363,21 @@ export class Space {
     };
   }
 
+  /** Broadcast a mahjong table with per-viewer redaction. */
+  broadcastMahjong(table: MahjongTable): void {
+    for (const member of this.sessions) {
+      send(member, 'game_mj', table.viewFor(member));
+    }
+  }
+
   /** Remove a session from any game machines it occupies. */
   dropFromGames(s: Session): void {
+    for (const t of this.xq.values()) {
+      if (t.dropSession(s)) this.broadcast('game_xq', t.publicState());
+    }
+    for (const t of this.mj.values()) {
+      if (t.dropSession(s)) this.broadcastMahjong(t);
+    }
     for (const t of this.ttt.values()) {
       const idx = t.players.indexOf(s);
       if (idx >= 0) {

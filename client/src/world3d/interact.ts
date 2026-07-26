@@ -41,23 +41,23 @@ export function buildTargets(spaceKey: string, room: RoomData | null): Target[] 
             out.push({
               id: `obj:${o.id}:s${i}`, kind: 'seat',
               x: o.x + sp.x * cos + sp.z * sin, y: o.y + sp.y, z: o.z - sp.x * sin + sp.z * cos,
-              ry: o.ry + sp.ry, label: o.type === 'bed' ? 'Sit on bed' : 'Sit',
+              ry: o.ry + sp.ry, label: o.type === 'bed' ? '坐到床上' : '坐下',
             });
           });
         } else if (def.interaction === 'lamp') {
-          out.push({ id: `obj:${o.id}`, kind: 'objlamp', x: o.x, y: o.y + 0.6, z: o.z, ry: o.ry, label: (o.state.on ?? true) ? `Turn off ${def.name.toLowerCase()}` : `Turn on ${def.name.toLowerCase()}` });
+          out.push({ id: `obj:${o.id}`, kind: 'objlamp', x: o.x, y: o.y + 0.6, z: o.z, ry: o.ry, label: (o.state.on ?? true) ? `关掉${def.name}` : `打开${def.name}` });
         } else if (def.interaction === 'screen') {
-          out.push({ id: `obj:${o.id}`, kind: 'screen', x: o.x, y: o.y + 0.8, z: o.z, ry: o.ry, label: 'Television' });
+          out.push({ id: `obj:${o.id}`, kind: 'screen', x: o.x, y: o.y + 0.8, z: o.z, ry: o.ry, label: '电视' });
         } else if (def.interaction === 'computer') {
-          out.push({ id: `obj:${o.id}`, kind: 'computer', x: o.x, y: o.y + 0.4, z: o.z, ry: o.ry, label: isOwner ? 'Use computer' : 'Look at computer', data: { objectId: o.id } });
+          out.push({ id: `obj:${o.id}`, kind: 'computer', x: o.x, y: o.y + 0.4, z: o.z, ry: o.ry, label: isOwner ? '使用电脑' : '看看电脑', data: { objectId: o.id } });
         } else if (def.interaction === 'storage') {
-          out.push({ id: `obj:${o.id}`, kind: 'storage', x: o.x, y: o.y + 0.8, z: o.z, ry: o.ry, label: isOwner ? 'Open wardrobe' : 'Wardrobe', data: { objectId: o.id } });
+          out.push({ id: `obj:${o.id}`, kind: 'storage', x: o.x, y: o.y + 0.8, z: o.z, ry: o.ry, label: isOwner ? '打开衣柜' : '衣柜', data: { objectId: o.id } });
         } else if (def.interaction === 'whiteboard') {
-          out.push({ id: `obj:${o.id}`, kind: 'whiteboard', x: o.x, y: o.y + 1.2, z: o.z, ry: o.ry, label: 'Whiteboard', data: { boardId: `obj:${o.id}` } });
+          out.push({ id: `obj:${o.id}`, kind: 'whiteboard', x: o.x, y: o.y + 1.2, z: o.z, ry: o.ry, label: '白板', data: { boardId: `obj:${o.id}` } });
         } else if (def.interaction === 'bookshelf') {
-          out.push({ id: `obj:${o.id}`, kind: 'bookshelf', x: o.x, y: o.y + 0.9, z: o.z, ry: o.ry, label: 'Browse books' });
+          out.push({ id: `obj:${o.id}`, kind: 'bookshelf', x: o.x, y: o.y + 0.9, z: o.z, ry: o.ry, label: '翻翻书' });
         } else if (def.interaction === 'speaker') {
-          out.push({ id: `obj:${o.id}`, kind: 'jukebox', x: o.x, y: o.y + 0.5, z: o.z, ry: o.ry, label: 'Music player' });
+          out.push({ id: `obj:${o.id}`, kind: 'jukebox', x: o.x, y: o.y + 0.5, z: o.z, ry: o.ry, label: '音乐播放器' });
         }
       }
     }
@@ -92,7 +92,7 @@ export function buildColliders(spaceKey: string, room: RoomData | null): Collide
 
 export function labelFor(t: Target): string {
   const seats = useWorld.getState().seats;
-  if (t.kind === 'seat' && seats[t.id] !== undefined) return 'Seat taken';
+  if (t.kind === 'seat' && seats[t.id] !== undefined) return '座位有人啦';
   return t.label;
 }
 
@@ -140,6 +140,12 @@ export function performAction(t: Target): void {
       break;
     case 'ttt':
       ui.openPanel({ kind: 'ttt', machineId: t.id });
+      break;
+    case 'xiangqi':
+      ui.openPanel({ kind: 'xiangqi', tableId: t.id });
+      break;
+    case 'mahjong':
+      ui.openPanel({ kind: 'mahjong', tableId: t.id });
       break;
     case 'lightsout':
       ui.openPanel({ kind: 'lightsout', machineId: t.id });

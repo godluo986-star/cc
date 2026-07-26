@@ -110,7 +110,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   },
 
   chat(world, s, d: C2SPayload<'chat'>) {
-    if (!s.buckets.chat.take()) { toast(s, 'warn', 'You are sending messages too quickly.'); return; }
+    if (!s.buckets.chat.take()) { toast(s, 'warn', '发言太快啦,歇一歇。'); return; }
     const sp = space(world, s);
     if (!sp) return;
     const text = d.text.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 300);
@@ -130,7 +130,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         (i.kind === 'door' && i.data?.target === d.target && sp.isNear(s, i.pos[0], i.pos[2], 5)) ||
         (i.kind === 'elevator' && isRoomSpace(d.target) && sp.isNear(s, i.pos[0], i.pos[2], 5)));
       if (!doorNear && !(isRoomSpace(s.spaceKey) && d.target === SPACE.LOBBY)) {
-        toast(s, 'warn', 'You need to be at a door to travel.');
+        toast(s, 'warn', '要走到门口才能过去哦。');
         return;
       }
     }
@@ -144,7 +144,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!sp) return;
     const seat = sp.seats.get(d.seatId);
     if (!seat) return;
-    if (sp.seatOcc.has(d.seatId)) { toast(s, 'info', 'That seat is taken.'); return; }
+    if (sp.seatOcc.has(d.seatId)) { toast(s, 'info', '这个座位有人啦。'); return; }
     if (!sp.isNear(s, seat.x, seat.z, 4)) return;
     if (s.seatId) world.releaseSeat(s, sp);
     s.seatId = d.seatId;
@@ -187,11 +187,11 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   media_set(world, s, d: C2SPayload<'media_set'>) {
     const sp = space(world, s);
     if (!sp || !sp.hasScreen || !sp.media) return;
-    if (!canControlMedia(sp, s)) { toast(s, 'warn', 'Only the room owner can control this screen.'); return; }
-    if (!s.buckets.media.take()) { toast(s, 'warn', 'Media changes are rate-limited — wait a moment.'); return; }
+    if (!canControlMedia(sp, s)) { toast(s, 'warn', '只有房主能控制这块屏幕。'); return; }
+    if (!s.buckets.media.take()) { toast(s, 'warn', '换台太频繁啦,稍等一下。'); return; }
     const classified = classifyMediaUrl(d.url);
     if (!classified) {
-      toast(s, 'error', 'Unsupported URL. Use a direct video file (mp4/webm) or a YouTube link.');
+      toast(s, 'error', '不支持的链接。请用网站网址、视频文件(mp4/webm)或 YouTube 链接。');
       return;
     }
     sp.media = {
@@ -204,7 +204,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   media_ctrl(world, s, d: C2SPayload<'media_ctrl'>) {
     const sp = space(world, s);
     if (!sp || !sp.hasScreen || !sp.media) return;
-    if (!canControlMedia(sp, s)) { toast(s, 'warn', 'Only the room owner can control this screen.'); return; }
+    if (!canControlMedia(sp, s)) { toast(s, 'warn', '只有房主能控制这块屏幕。'); return; }
     if (!s.buckets.generic.take()) return;
     const m = sp.media;
     const now = Date.now();
@@ -237,8 +237,8 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   music_set(world, s, d: C2SPayload<'music_set'>) {
     const sp = space(world, s);
     if (!sp || !sp.hasMusic || !sp.music) return;
-    if (sp.isRoom && !canControlMedia(sp, s)) { toast(s, 'warn', 'Only the room owner can control music here.'); return; }
-    if (!s.buckets.media.take()) { toast(s, 'warn', 'The jukebox needs a moment between songs.'); return; }
+    if (sp.isRoom && !canControlMedia(sp, s)) { toast(s, 'warn', '只有房主能控制这里的音乐。'); return; }
+    if (!s.buckets.media.take()) { toast(s, 'warn', '点歌机换歌需要缓一缓。'); return; }
     if (d.trackId !== null && !TRACK_IDS.includes(d.trackId)) return;
     sp.music = { trackId: d.trackId, startedAt: Date.now(), setBy: s.user.username };
     sp.broadcast('music_state', sp.music);
@@ -264,7 +264,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const sp = space(world, s);
     if (!sp || !sp.whiteboards.has(d.boardId)) return;
     if (sp.isRoom && sp.roomData!.ownerId !== s.user.id) {
-      toast(s, 'warn', 'Only the room owner can wipe this board.');
+      toast(s, 'warn', '只有房主能擦掉整块板子。');
       return;
     }
     sp.whiteboards.set(d.boardId, []);
@@ -277,7 +277,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!sp) return;
     const it = nearInteractable(sp, s, d.boardId, ['board']);
     if (!it) return;
-    if (!s.buckets.board.take()) { toast(s, 'warn', 'One note per few seconds, please.'); return; }
+    if (!s.buckets.board.take()) { toast(s, 'warn', '贴纸条别太快,几秒一张。'); return; }
     const text = d.text.replace(/[\u0000-\u001f\u007f]/g, '').trim();
     if (!text) return;
     world.db.prepare('INSERT INTO board_posts (board_key, user_id, username, text, created_at) VALUES (?, ?, ?, ?, ?)')
@@ -300,7 +300,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
       .get(d.postId, sp.boardKey(d.boardId)) as { user_id: number } | undefined;
     if (!row) return;
     const isOwner = sp.isRoom && sp.roomData!.ownerId === s.user.id;
-    if (row.user_id !== s.user.id && !isOwner) { toast(s, 'warn', 'You can only remove your own notes.'); return; }
+    if (row.user_id !== s.user.id && !isOwner) { toast(s, 'warn', '只能撕自己贴的纸条。'); return; }
     world.db.prepare('DELETE FROM board_posts WHERE id = ?').run(d.postId);
     sp.broadcast('board_state', { boardId: d.boardId, posts: sp.loadBoard(d.boardId) });
   },
@@ -379,6 +379,14 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!s.buckets.interact.take()) return;
     const sp = space(world, s);
     if (!sp) return;
+    const xq = sp.xq.get(d.machineId);
+    if (xq) {
+      if (!nearInteractable(sp, s, d.machineId, ['xiangqi'])) return;
+      const err = xq.join(s);
+      if (err) { toast(s, 'info', err); return; }
+      sp.broadcast('game_xq', xq.publicState());
+      return;
+    }
     const ttt = sp.ttt.get(d.machineId);
     if (ttt) {
       if (!nearInteractable(sp, s, d.machineId, ['ttt'])) return;
@@ -386,7 +394,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         ttt.board = Array(9).fill(0); ttt.turn = 1; ttt.winner = 0; // rematch
       } else if (ttt.players[0] !== s && ttt.players[1] !== s) {
         const slot = ttt.players[0] === null ? 0 : ttt.players[1] === null ? 1 : -1;
-        if (slot === -1) { toast(s, 'info', 'Both seats are taken — watch this round!'); return; }
+        if (slot === -1) { toast(s, 'info', '两个座位都满了——先观战这局吧!'); return; }
         ttt.players[slot] = s;
       }
       sp.broadcast('game_ttt', sp.tttPublic(ttt));
@@ -395,7 +403,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const lo = sp.lo.get(d.machineId);
     if (lo) {
       if (!nearInteractable(sp, s, d.machineId, ['lightsout'])) return;
-      if (lo.session && lo.session !== s) { toast(s, 'info', `${lo.session.user.username} is playing.`); return; }
+      if (lo.session && lo.session !== s) { toast(s, 'info', `${lo.session.user.username} 正在玩呢。`); return; }
       lo.session = s;
       lo.moves = 0;
       lo.grid = generateLightsOut();
@@ -406,6 +414,11 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   game_leave(world, s, d: C2SPayload<'game_leave'>) {
     const sp = space(world, s);
     if (!sp) return;
+    const xq = sp.xq.get(d.machineId);
+    if (xq && xq.leave(s)) {
+      sp.broadcast('game_xq', xq.publicState());
+      return;
+    }
     const ttt = sp.ttt.get(d.machineId);
     if (ttt && (ttt.players[0] === s || ttt.players[1] === s)) {
       const idx = ttt.players.indexOf(s);
@@ -433,13 +446,74 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         if (!lo.best || lo.moves < lo.best.moves) {
           lo.best = { name: s.user.username, moves: lo.moves };
           kvSet(world.db, `lo-best:${lo.machineId}`, lo.best);
-          world.systemChat(sp, `${s.user.username} set a Lights Out record: ${lo.moves} moves!`);
+          world.systemChat(sp, `${s.user.username} 创下关灯谜题纪录:${lo.moves} 步!`);
         } else {
-          world.systemChat(sp, `${s.user.username} solved Lights Out in ${lo.moves} moves!`);
+          world.systemChat(sp, `${s.user.username} 用 ${lo.moves} 步解开了关灯谜题!`);
         }
         lo.session = null;
       }
       sp.broadcast('game_lo', sp.loPublic(lo));
+    }
+  },
+
+  xq_move(world, s, d: C2SPayload<'xq_move'>) {
+    if (!s.buckets.generic.take()) return;
+    const sp = space(world, s);
+    if (!sp) return;
+    const table = sp.xq.get(d.tableId);
+    if (!table) return;
+    const err = table.move(s, d.from, d.to);
+    if (err) { toast(s, 'info', err); return; }
+    sp.broadcast('game_xq', table.publicState());
+    if (table.winner !== -1) {
+      const winner = table.players[table.winner];
+      if (winner) world.systemChat(sp, `${winner.user.username} 在象棋桌上赢了一局!`);
+    }
+  },
+
+  mj_action(world, s, d: C2SPayload<'mj_action'>) {
+    if (!s.buckets.generic.take()) return;
+    const sp = space(world, s);
+    if (!sp) return;
+    const table = sp.mj.get(d.tableId);
+    if (!table) return;
+    let err: string | null = null;
+    switch (d.action) {
+      case 'sit': {
+        if (!nearInteractable(sp, s, d.tableId, ['mahjong'])) return;
+        err = table.sit(s);
+        break;
+      }
+      case 'leave':
+        table.leave(s);
+        break;
+      case 'start':
+        err = table.start(s);
+        break;
+      case 'discard': {
+        const seat = table.seatOf(s);
+        if (seat === -1 || d.tile === undefined) return;
+        err = table.discard(seat, d.tile);
+        break;
+      }
+      case 'pong':
+      case 'kong':
+      case 'hu':
+      case 'pass': {
+        const seat = table.seatOf(s);
+        if (seat === -1) return;
+        if (table.claim) {
+          err = table.respond(seat, d.action);
+        } else if (d.action === 'hu' || d.action === 'kong') {
+          err = table.selfAction(seat, d.action, d.tile);
+        }
+        break;
+      }
+    }
+    if (err) { toast(s, 'info', err); return; }
+    sp.broadcastMahjong(table);
+    for (const ev of table.drainEvents()) {
+      if (ev.kind === 'finish') world.settleMahjong(sp, table, ev.winnerSeat, ev.winKind, ev.reward);
     }
   },
 
@@ -448,7 +522,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const sp = space(world, s);
     if (!sp || !sp.isRoom || !sp.roomData) return;
     const room = sp.roomData;
-    if (room.ownerId !== s.user.id) { toast(s, 'warn', 'Only the owner can edit this room.'); return; }
+    if (room.ownerId !== s.user.id) { toast(s, 'warn', '只有房主能改造这个房间。'); return; }
 
     switch (d.op) {
       case 'add': {
@@ -456,7 +530,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         if (!def) return;
         if (def.price > 0) {
           const unlocked = world.db.prepare('SELECT 1 FROM unlocks WHERE user_id = ? AND furniture_type = ?').get(s.user.id, d.type);
-          if (!unlocked) { toast(s, 'warn', `${def.name} must be unlocked at the shop kiosk first.`); return; }
+          if (!unlocked) { toast(s, 'warn', `「${def.name}」要先去商店购买台解锁。`); return; }
         }
         const res = addRoomObject(world.db, s.user.id, d.type, d.x, d.y, d.z, d.ry, d.color);
         if ('error' in res) { toast(s, 'warn', res.error); return; }
@@ -507,7 +581,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         if (d.visibility === 'private') {
           for (const member of [...sp.sessions]) {
             if (member.user.id !== room.ownerId) {
-              toast(member, 'info', 'The owner made this room private.');
+              toast(member, 'info', '房主把房间设为私密了。');
               const init = world.switchSpace(member, SPACE.LOBBY, undefined);
               if (init) send(member, 'space_init', init);
             }
@@ -568,12 +642,12 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!allowed.includes(d.itemId)) return;
     const item = ITEMS_BY_ID[d.itemId];
     if (!item) return;
-    if (s.user.credits < item.price) { toast(s, 'warn', `Not enough credits (${item.price} needed).`); return; }
+    if (s.user.credits < item.price) { toast(s, 'warn', `金币不够(需要 ${item.price})。`); return; }
     world.db.prepare('UPDATE users SET credits = credits - ? WHERE id = ?').run(item.price, s.user.id);
     world.db.prepare('INSERT INTO inventory (user_id, item_id, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item_id) DO UPDATE SET qty = qty + 1')
       .run(s.user.id, d.itemId);
     send(s, 'self_update', world.buildSelfState(s));
-    toast(s, 'info', `${item.icon} ${item.name} added to your inventory.`);
+    toast(s, 'info', `${item.icon} ${item.name} 已放进背包。`);
   },
 
   unlock_furniture(world, s, d: C2SPayload<'unlock_furniture'>) {
@@ -585,12 +659,12 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const def = FURNITURE_BY_TYPE[d.type];
     if (!def || def.price <= 0) return;
     const exists = world.db.prepare('SELECT 1 FROM unlocks WHERE user_id = ? AND furniture_type = ?').get(s.user.id, d.type);
-    if (exists) { toast(s, 'info', 'Already unlocked.'); return; }
-    if (s.user.credits < def.price) { toast(s, 'warn', `Not enough credits (${def.price} needed).`); return; }
+    if (exists) { toast(s, 'info', '已经解锁过啦。'); return; }
+    if (s.user.credits < def.price) { toast(s, 'warn', `金币不够(需要 ${def.price})。`); return; }
     world.db.prepare('UPDATE users SET credits = credits - ? WHERE id = ?').run(def.price, s.user.id);
     world.db.prepare('INSERT INTO unlocks (user_id, furniture_type) VALUES (?, ?)').run(s.user.id, d.type);
     send(s, 'self_update', world.buildSelfState(s));
-    toast(s, 'info', `${def.name} unlocked! Place it from the room editor.`);
+    toast(s, 'info', `「${def.name}」解锁成功!去房间编辑器里摆上吧。`);
   },
 
   use_item(world, s, d: C2SPayload<'use_item'>) {
@@ -598,7 +672,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const item = ITEMS_BY_ID[d.itemId];
     if (!item || item.heldId === undefined) return;
     const row = world.db.prepare('SELECT qty FROM inventory WHERE user_id = ? AND item_id = ?').get(s.user.id, d.itemId) as { qty: number } | undefined;
-    if (!row || row.qty <= 0) { toast(s, 'warn', 'You do not have that item.'); return; }
+    if (!row || row.qty <= 0) { toast(s, 'warn', '你没有这个物品。'); return; }
     if (item.kind === 'consumable') {
       world.db.prepare('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item_id = ?').run(s.user.id, d.itemId);
     }

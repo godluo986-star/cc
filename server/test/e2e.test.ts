@@ -28,6 +28,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   world.stop();
+  server.closeAllConnections?.();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
@@ -131,7 +132,7 @@ describe('end-to-end multiplayer', () => {
     const second = await connect(reg.json.token);
     await second.next('welcome');
     const kicked = await first.next('kicked');
-    expect(kicked.reason).toMatch(/another window/i);
+    expect(kicked.reason).toMatch(/其他窗口/);
     second.close();
   });
 

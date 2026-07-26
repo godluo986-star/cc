@@ -60,6 +60,12 @@ export const c2s = {
   game_join: z.object({ machineId: z.string().min(1).max(32) }),
   game_leave: z.object({ machineId: z.string().min(1).max(32) }),
   game_move: z.object({ machineId: z.string().min(1).max(32), cell: z.number().int().min(0).max(24) }),
+  xq_move: z.object({ tableId: z.string().min(1).max(32), from: z.number().int().min(0).max(89), to: z.number().int().min(0).max(89) }),
+  mj_action: z.object({
+    tableId: z.string().min(1).max(32),
+    action: z.enum(['sit', 'leave', 'start', 'discard', 'pong', 'kong', 'hu', 'pass']),
+    tile: z.number().int().min(0).max(33).optional(),
+  }),
   room_edit: z.discriminatedUnion('op', [
     z.object({ op: z.literal('add'), type: z.string().max(32), x: finite, y: finite, z: finite, ry: finite, color: hexColor }),
     z.object({ op: z.literal('move'), id: z.number().int(), x: finite, y: finite, z: finite, ry: finite }),
@@ -113,6 +119,8 @@ export interface S2CMap {
   npc_dialog: DialogueNode | { npcId: number; end: true };
   game_ttt: TicTacToeState;
   game_lo: LightsOutState;
+  game_xq: import('./xiangqi').XiangqiState;
+  game_mj: import('./mahjong').MahjongView;
   room_data: RoomData;
   room_dir: { rooms: RoomDirectoryEntry[] };
   env: WorldEnv;

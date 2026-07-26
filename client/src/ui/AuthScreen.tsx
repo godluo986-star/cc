@@ -28,7 +28,7 @@ export default function AuthScreen() {
       const res = await fn(username.trim(), password);
       enter(res.token);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(e instanceof Error ? e.message : '出了点小问题。');
     } finally {
       setBusy(false);
     }
@@ -42,7 +42,7 @@ export default function AuthScreen() {
       const res = await api.guest();
       enter(res.token);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(e instanceof Error ? e.message : '出了点小问题。');
     } finally {
       setBusy(false);
     }
@@ -51,18 +51,18 @@ export default function AuthScreen() {
   return (
     <div className="auth-screen">
       <div className="panel auth-card">
-        <div className="auth-logo">Nexus <em>Park</em></div>
+        <div className="auth-logo">团子<em>广场</em></div>
         <div className="auth-sub">
-          A persistent multiplayer 3D world. Explore the plaza, watch synced videos in the cinema,
-          decorate your own room, and hang out.
+          一个持久存在的多人 3D 小世界:逛广场、在电影院一起看片、装扮自己的小屋、
+          打麻将下象棋,和朋友们一起蹦蹦跳跳。
         </div>
         <div className="auth-tabs">
-          <button className={`btn ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>Sign in</button>
-          <button className={`btn ${mode === 'register' ? 'active' : ''}`} onClick={() => setMode('register')}>Create account</button>
+          <button className={`btn ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>登录</button>
+          <button className={`btn ${mode === 'register' ? 'active' : ''}`} onClick={() => setMode('register')}>注册</button>
         </div>
         <input
           className="input"
-          placeholder="Username"
+          placeholder="用户名"
           value={username}
           autoFocus
           maxLength={20}
@@ -71,7 +71,7 @@ export default function AuthScreen() {
         />
         <input
           className="input"
-          placeholder={mode === 'register' ? 'Password (min 8 characters)' : 'Password'}
+          placeholder={mode === 'register' ? '密码(至少 8 位)' : '密码'}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -79,13 +79,13 @@ export default function AuthScreen() {
         />
         <div className="auth-error">{error}</div>
         <button className="btn primary" disabled={busy || !username || !password} onClick={submit}>
-          {busy ? '…' : mode === 'login' ? 'Enter the world' : 'Create & enter'}
+          {busy ? '…' : mode === 'login' ? '进入世界' : '注册并进入'}
         </button>
         <button className="btn ghost" disabled={busy} onClick={guest}>
-          Continue as guest
+          游客进入
         </button>
         <div className="dim" style={{ fontSize: 11 }}>
-          Guests get a real account with a random name — you just can't pick it.
+          游客也是真实账号(随机名字),数据同样会保存。
         </div>
       </div>
     </div>

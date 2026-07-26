@@ -20,7 +20,7 @@ export function SettingsPanel() {
   );
   return (
     <div className="col">
-      <div className="title" style={{ fontSize: 13 }}>Graphics quality</div>
+      <div className="title" style={{ fontSize: 13 }}>画质</div>
       <div className="row">
         {(['low', 'medium', 'high', 'ultra'] as Quality[]).map((q) => (
           <button key={q} className={`btn small ${s.quality === q ? 'primary' : ''}`} onClick={() => s.applyQuality(q)}>
@@ -29,20 +29,20 @@ export function SettingsPanel() {
         ))}
       </div>
       <div className="grid2">
-        <Toggle label="Shadows" k="shadows" />
-        <Toggle label="Post-processing" k="postfx" />
-        <Toggle label="Reflections & mirrors" k="reflections" />
-        <Toggle label="Weather particles" k="particles" />
-        <Toggle label="Clouds" k="clouds" />
+        <Toggle label="阴影" k="shadows" />
+        <Toggle label="后期特效" k="postfx" />
+        <Toggle label="反射与镜面" k="reflections" />
+        <Toggle label="天气粒子" k="particles" />
+        <Toggle label="云朵" k="clouds" />
       </div>
       <hr className="hr" />
-      <div className="title" style={{ fontSize: 13 }}>Audio</div>
+      <div className="title" style={{ fontSize: 13 }}>音量</div>
       <div className="grid2">
-        <Vol label="Master" k="masterVolume" />
-        <Vol label="Music" k="musicVolume" />
-        <Vol label="Effects" k="sfxVolume" />
-        <Vol label="Voice chat" k="voiceVolume" />
-        <Vol label="Screens" k="mediaVolume" />
+        <Vol label="主音量" k="masterVolume" />
+        <Vol label="音乐" k="musicVolume" />
+        <Vol label="音效" k="sfxVolume" />
+        <Vol label="语音" k="voiceVolume" />
+        <Vol label="屏幕媒体" k="mediaVolume" />
       </div>
     </div>
   );
@@ -70,41 +70,41 @@ export function AvatarEditor() {
   const dirty = JSON.stringify(cfg) !== JSON.stringify(self.avatar);
   return (
     <div className="col">
-      <div className="dim" style={{ fontSize: 12 }}>You are a dango — customize your squish.</div>
-      <label className="field">Body<Sw colors={BODY_COLORS} k="shirt" /></label>
-      <label className="field">Scarf<Sw colors={SCARF_COLORS} k="pants" /></label>
-      <label className="field">Blush<Sw colors={BLUSH_COLORS} k="skin" /></label>
-      <label className="field">Feet<Sw colors={FEET_COLORS} k="shoes" /></label>
+      <div className="dim" style={{ fontSize: 12 }}>你是一颗团子——捏出你自己的样子。</div>
+      <label className="field">身体<Sw colors={BODY_COLORS} k="shirt" /></label>
+      <label className="field">围巾<Sw colors={SCARF_COLORS} k="pants" /></label>
+      <label className="field">腮红<Sw colors={BLUSH_COLORS} k="skin" /></label>
+      <label className="field">小脚<Sw colors={FEET_COLORS} k="shoes" /></label>
       <div className="grid2">
         <label className="field">
-          Sprout
+          头顶小芽
           <select className="input" value={cfg.hairStyle} onChange={(e) => set({ hairStyle: Number(e.target.value) })}>
-            <option value={0}>Curly sprout</option>
-            <option value={1}>Little leaves</option>
-            <option value={2}>None</option>
+            <option value={0}>卷卷芽</option>
+            <option value={1}>小叶子</option>
+            <option value={2}>不要</option>
           </select>
         </label>
         <label className="field">
-          Hat
+          帽子
           <select className="input" value={cfg.hat} onChange={(e) => set({ hat: Number(e.target.value) })}>
-            <option value={0}>No hat</option>
-            <option value={1}>Cap</option>
-            <option value={2}>Beanie</option>
-            <option value={3}>Top hat</option>
+            <option value={0}>不戴</option>
+            <option value={1}>棒球帽</option>
+            <option value={2}>毛线帽</option>
+            <option value={3}>礼帽</option>
           </select>
         </label>
       </div>
-      {cfg.hairStyle !== 2 && cfg.hat === 0 && <label className="field">Sprout color<Sw colors={SPROUT_COLORS} k="hair" /></label>}
-      {cfg.hat !== 0 && <label className="field">Hat color<Sw colors={HAT_COLORS} k="hatColor" /></label>}
+      {cfg.hairStyle !== 2 && cfg.hat === 0 && <label className="field">小芽颜色<Sw colors={SPROUT_COLORS} k="hair" /></label>}
+      {cfg.hat !== 0 && <label className="field">帽子颜色<Sw colors={HAT_COLORS} k="hatColor" /></label>}
       <label className="row" style={{ fontSize: 13 }}>
         <input type="checkbox" checked={cfg.glasses} onChange={(e) => set({ glasses: e.target.checked })} />
-        Glasses
+        眼镜
       </label>
       <button
         className="btn primary" disabled={!dirty}
         onClick={() => connection.send('avatar_update', { avatar: cfg })}
       >
-        {dirty ? 'Apply' : 'Applied ✓'}
+        {dirty ? '应用' : '已应用 ✓'}
       </button>
     </div>
   );
@@ -114,18 +114,16 @@ export function HelpPanel() {
   const K = ({ children }: { children: string }) => <span className="key">{children}</span>;
   return (
     <div className="kbd-help">
-      <div><K>W A S D</K> hop around · <K>Shift</K> zoomies · <K>Space</K> jump</div>
-      <div><K>Mouse drag</K> orbit camera · <K>Wheel</K> zoom</div>
-      <div><K>E</K> interact with whatever the prompt shows</div>
-      <div><K>Enter</K> chat · <K>1–5</K> emotes (wave, dance, clap, point, laugh)</div>
-      <div><K>Esc</K> close panels / cancel editing</div>
+      <div><K>W A S D</K> 蹦跶移动 · <K>Shift</K> 狂奔 · <K>空格</K> 跳跳</div>
+      <div><K>鼠标拖动</K> 旋转视角 · <K>滚轮</K> 缩放</div>
+      <div><K>E</K> 与提示中的东西互动</div>
+      <div><K>回车</K> 聊天 · <K>1–5</K> 表情(挥手/跳舞/鼓掌/指一指/大笑)</div>
+      <div><K>Esc</K> 关闭面板 / 取消编辑</div>
       <hr className="hr" />
       <div className="dim" style={{ fontSize: 12, lineHeight: 1.6 }}>
-        Things to try: queue a video in the cinema · challenge someone at the arcade's VERSUS
-        machine · put a website on your room TV · redecorate your room from the ✏️ editor ·
-        toggle your mic 🎙 for proximity voice chat — people close to you hear you louder ·
-        share your screen 🖥️ and it floats above your dango for nearby friends (low bitrate,
-        640×360) — five dango on a sofa can each share while everyone watches.
+        可以试试:去电影院点部片一起看 · 咖啡馆下象棋、打福州麻将 · 游戏厅挑战井字棋 ·
+        给自己房间的电视放个网站 · 点 ✏️ 重新装修房间 · 开 🎙 就近语音(离得越近听得越清)·
+        开 🖥️ 分享屏幕,画面会浮在你的团子头顶(低码率 640×360)——五只团子排排坐各自开屏,大家围观。
       </div>
     </div>
   );

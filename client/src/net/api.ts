@@ -13,10 +13,10 @@ async function post(path: string, body?: unknown): Promise<AuthResponse> {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new Error('Cannot reach the server. Is it running?');
+    throw new Error('连不上服务器,确认它在运行吗?');
   }
   const data = (await res.json().catch(() => ({}))) as { error?: string } & AuthResponse;
-  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(data.error ?? `请求失败(${res.status})`);
   return data;
 }
 

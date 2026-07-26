@@ -67,11 +67,11 @@ export enum Anim {
   Laugh = 9,
 }
 export const EMOTES: { anim: Anim; label: string; icon: string }[] = [
-  { anim: Anim.Wave, label: 'Wave', icon: '👋' },
-  { anim: Anim.Dance, label: 'Dance', icon: '🕺' },
-  { anim: Anim.Clap, label: 'Clap', icon: '👏' },
-  { anim: Anim.Point, label: 'Point', icon: '👉' },
-  { anim: Anim.Laugh, label: 'Laugh', icon: '😂' },
+  { anim: Anim.Wave, label: '挥手', icon: '👋' },
+  { anim: Anim.Dance, label: '跳舞', icon: '🕺' },
+  { anim: Anim.Clap, label: '鼓掌', icon: '👏' },
+  { anim: Anim.Point, label: '指一指', icon: '👉' },
+  { anim: Anim.Laugh, label: '大笑', icon: '😂' },
 ];
 /** Bit flags packed alongside anim in the state integer. */
 export const ST_SPEAKING = 1 << 6;

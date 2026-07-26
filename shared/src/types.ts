@@ -188,7 +188,12 @@ export interface SpaceInit {
   switches: Record<string, boolean>;
   objs: ObjSnap[];
   room: RoomData | null;
-  games: { tictactoe: TicTacToeState[]; lightsout: LightsOutState[] };
+  games: {
+    tictactoe: TicTacToeState[];
+    lightsout: LightsOutState[];
+    xiangqi: import('./xiangqi').XiangqiState[];
+    mahjong: import('./mahjong').MahjongView[];
+  };
   voiceRoster: number[];
   screenRoster: number[];
 }

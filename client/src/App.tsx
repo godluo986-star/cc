@@ -13,9 +13,9 @@ class CanvasErrorBoundary extends Component<{ children: ReactNode }, { error: Er
       return (
         <div className="auth-screen">
           <div className="panel auth-card">
-            <div className="auth-logo">Something broke 😵</div>
+            <div className="auth-logo">出了点问题 😵</div>
             <div className="auth-sub">{String(this.state.error.message ?? this.state.error)}</div>
-            <button className="btn primary" onClick={() => location.reload()}>Reload</button>
+            <button className="btn primary" onClick={() => location.reload()}>刷新页面</button>
           </div>
         </div>
       );
@@ -31,7 +31,7 @@ function KickedModal() {
   return (
     <div className="modal-scrim" style={{ zIndex: 100 }}>
       <div className="panel modal">
-        <div className="modal-head"><span className="title">Disconnected</span></div>
+        <div className="modal-head"><span className="title">连接断开</span></div>
         <p className="dim">{kicked}</p>
         <div className="row">
           <button
@@ -46,7 +46,7 @@ function KickedModal() {
               }
             }}
           >
-            Rejoin
+            重新进入
           </button>
           <button
             className="btn ghost"
@@ -56,7 +56,7 @@ function KickedModal() {
               session.setPhase('auth');
             }}
           >
-            Sign out
+            退出登录
           </button>
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function App() {
             fallback={
               <div className="loading-overlay">
                 <div className="spinner" />
-                <div className="dim">Loading the world…</div>
+                <div className="dim">世界加载中…</div>
               </div>
             }
           >

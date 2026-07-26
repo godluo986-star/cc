@@ -62,13 +62,13 @@ export class AuthService {
 
   register(username: string, password: string): { token: string; user: AuthUser } {
     if (!USERNAME_RE.test(username)) {
-      throw new AuthError('bad_username', 'Username must be 3-20 characters: letters, digits, underscore.');
+      throw new AuthError('bad_username', '用户名需 3-20 位:字母、数字或下划线。');
     }
     if (typeof password !== 'string' || password.length < PASSWORD_MIN_LEN) {
-      throw new AuthError('bad_password', `Password must be at least ${PASSWORD_MIN_LEN} characters.`);
+      throw new AuthError('bad_password', `密码至少 ${PASSWORD_MIN_LEN} 位。`);
     }
     const exists = this.db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (exists) throw new AuthError('taken', 'That username is already taken.');
+    if (exists) throw new AuthError('taken', '这个用户名已经被占用啦。');
     const hash = bcrypt.hashSync(password, 10);
     const info = this.db.prepare(
       'INSERT INTO users (username, pass_hash, avatar, credits, is_guest, created_at, last_login_day) VALUES (?, ?, ?, ?, 0, ?, ?)'
@@ -81,7 +81,7 @@ export class AuthService {
   login(username: string, password: string): { token: string; user: AuthUser } {
     const row = this.db.prepare('SELECT * FROM users WHERE username = ?').get(username) as UserRow | undefined;
     if (!row || !bcrypt.compareSync(password, row.pass_hash)) {
-      throw new AuthError('bad_credentials', 'Wrong username or password.');
+      throw new AuthError('bad_credentials', '用户名或密码不对。');
     }
     const bonus = this.applyDailyBonus(row);
     return this.issue(this.loadUser(row.id, bonus));
@@ -100,7 +100,7 @@ export class AuthService {
       createDefaultRoom(this.db, id, name);
       return this.issue(this.loadUser(id, 0));
     }
-    throw new AuthError('guest_exhausted', 'Could not allocate a guest slot, please register.');
+    throw new AuthError('guest_exhausted', '游客名额分不出来了,注册一个吧。');
   }
 
   verifyToken(token: string): AuthUser {
@@ -108,10 +108,10 @@ export class AuthService {
     try {
       payload = jwt.verify(token, config.jwtSecret) as { uid: number };
     } catch {
-      throw new AuthError('bad_token', 'Session expired — please sign in again.');
+      throw new AuthError('bad_token', '登录已过期,请重新登录。');
     }
     const row = this.db.prepare('SELECT id FROM users WHERE id = ?').get(payload.uid) as { id: number } | undefined;
-    if (!row) throw new AuthError('gone', 'Account no longer exists.');
+    if (!row) throw new AuthError('gone', '账号不存在了。');
     const full = this.db.prepare('SELECT * FROM users WHERE id = ?').get(payload.uid) as UserRow;
     const bonus = this.applyDailyBonus(full);
     return this.loadUser(payload.uid, bonus);

@@ -54,7 +54,7 @@ export function attachGateway(server: Server, world: World, auth: AuthService): 
         if (msg.t !== 'hello') return;
         const parsed = c2s.hello.safeParse(msg.d);
         if (!parsed.success) { ws.close(4001, 'bad hello'); return; }
-        if (parsed.data.v !== PROTOCOL_VERSION) { ws.close(4002, 'version mismatch — refresh the page'); return; }
+        if (parsed.data.v !== PROTOCOL_VERSION) { ws.close(4002, '版本不一致,请刷新页面'); return; }
         let user;
         try {
           user = auth.verifyToken(parsed.data.token);
@@ -68,7 +68,7 @@ export function attachGateway(server: Server, world: World, auth: AuthService): 
         // one live session per account
         const existing = world.sessionsByUser.get(user.id);
         if (existing) {
-          send(existing, 'kicked', { reason: 'You signed in from another window.' });
+          send(existing, 'kicked', { reason: '你在其他窗口登录了。' });
           existing.ws.close(4008, 'superseded');
           world.disconnect(existing, true);
         }
@@ -85,7 +85,7 @@ export function attachGateway(server: Server, world: World, auth: AuthService): 
           stun: config.stunServers,
         });
         if (user.dailyBonus > 0) {
-          send(session, 'toast', { level: 'info', text: `Daily bonus: +${user.dailyBonus} credits!` });
+          send(session, 'toast', { level: 'info', text: `每日登录奖励:+${user.dailyBonus} 金币!` });
         }
         log.info(`join user=${user.username} session=${session.id} space=${entry.spaceKey}`);
         return;

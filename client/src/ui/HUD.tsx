@@ -15,6 +15,7 @@ import {
   NotesPanel, StoragePanel,
 } from './panels';
 import { SettingsPanel, AvatarEditor, HelpPanel } from './SettingsPanels';
+import { XiangqiPanel, MahjongPanel } from './GamePanelsCn';
 import { RoomEditorBar, RoomSettingsPanel } from './RoomEditorBar';
 
 function Clock() {
@@ -36,23 +37,25 @@ function Clock() {
 
 function panelTitle(p: PanelKind): string {
   switch (p.kind) {
-    case 'settings': return 'Settings';
-    case 'avatar': return 'Your dango';
-    case 'help': return 'How to play';
-    case 'inventory': return 'Inventory';
-    case 'media': return 'Screen';
-    case 'whiteboard': return 'Whiteboard';
-    case 'board': return 'Message board';
-    case 'jukebox': return 'Jukebox';
-    case 'ttt': return 'VERSUS — Tic-tac-toe';
-    case 'lightsout': return 'Lights Out';
-    case 'vending': return 'Vending machine';
-    case 'kiosk': return 'Furniture catalog';
-    case 'elevator': return 'Elevator';
-    case 'notes': return 'Computer';
-    case 'storage': return 'Wardrobe';
-    case 'books': return 'Bookshelf';
-    case 'roomSettings': return 'Room settings';
+    case 'settings': return '设置';
+    case 'avatar': return '我的团子';
+    case 'help': return '玩法说明';
+    case 'inventory': return '背包';
+    case 'media': return '屏幕';
+    case 'whiteboard': return '白板';
+    case 'board': return '留言板';
+    case 'jukebox': return '点歌机';
+    case 'ttt': return 'VERSUS·井字棋';
+    case 'lightsout': return '关灯谜题';
+    case 'xiangqi': return '象棋';
+    case 'mahjong': return '福州麻将';
+    case 'vending': return '贩卖机';
+    case 'kiosk': return '家具购买台';
+    case 'elevator': return '电梯';
+    case 'notes': return '电脑';
+    case 'storage': return '衣柜';
+    case 'books': return '书架';
+    case 'roomSettings': return '房间设置';
     default: return '';
   }
 }
@@ -69,6 +72,8 @@ function PanelBody({ p }: { p: PanelKind }): ReactNode {
     case 'jukebox': return <JukeboxPanel />;
     case 'ttt': return <TttPanel machineId={p.machineId} />;
     case 'lightsout': return <LightsOutPanel machineId={p.machineId} />;
+    case 'xiangqi': return <XiangqiPanel tableId={p.tableId} />;
+    case 'mahjong': return <MahjongPanel tableId={p.tableId} />;
     case 'vending': return <VendingPanel vendId={p.vendId} items={p.items} />;
     case 'kiosk': return <KioskPanel />;
     case 'elevator': return <ElevatorPanel />;
@@ -96,7 +101,7 @@ function DialogueBox() {
             {o.label}
           </button>
         ))}
-        <button className="btn ghost" onClick={() => useUI.getState().setDialogue(null)}>Walk away</button>
+        <button className="btn ghost" onClick={() => useUI.getState().setDialogue(null)}>转身离开</button>
       </div>
     </div>
   );
@@ -108,11 +113,11 @@ function Roster() {
   const label = useWorld((s) => s.label);
   return (
     <div className="roster panel">
-      <div className="title" style={{ fontSize: 13, marginBottom: 6 }}>{label} · {roster.filter((r) => !r.isNpc).length} here</div>
+      <div className="title" style={{ fontSize: 13, marginBottom: 6 }}>{label} · {roster.filter((r) => !r.isNpc).length} 人在场</div>
       {roster.map((p) => (
         <div key={p.id} className="roster-line">
           <span className={`roster-dot ${p.isNpc ? 'npc' : ''}`} />
-          <span style={{ flex: 1 }}>{p.username}{p.id === hot.selfId ? ' (you)' : ''}</span>
+          <span style={{ flex: 1 }}>{p.username}{p.id === hot.selfId ? '(我)' : ''}</span>
           {voiceRoster.includes(p.id) && <span>🎙</span>}
         </div>
       ))}
@@ -167,7 +172,7 @@ export default function HUD() {
   return (
     <div className="hud">
       {(!connected || reconnecting) && (
-        <div className="conn-banner">⚡ Connection lost — reconnecting…</div>
+        <div className="conn-banner">⚡ 连接断开,正在重连…</div>
       )}
 
       <div className="hud-top panel">
@@ -219,30 +224,30 @@ export default function HUD() {
       <div className="dock">
         {isOwnRoom && (
           <button
-            className={`btn ${editMode ? 'on' : ''}`} title="Room editor"
+            className={`btn ${editMode ? 'on' : ''}`} title="房间编辑器"
             onClick={() => { ui.setEditMode(!editMode); audio.click(); }}
           >
             ✏️
           </button>
         )}
-        <button className="btn" title="Emotes (1-5)" onClick={() => setEmotesOpen(!emotesOpen)}>🎭</button>
+        <button className="btn" title="表情(1-5)" onClick={() => setEmotesOpen(!emotesOpen)}>🎭</button>
         <button
           className={`btn ${voiceOn ? 'on' : ''} ${voiceOn && micLevel > 0.14 ? 'talking' : ''}`}
-          title="Voice chat (proximity)"
+          title="就近语音"
           onClick={() => voice.toggle()}
         >
           {voiceOn ? '🎙' : '🔇'}
         </button>
         <button
           className={`btn ${screenOn ? 'on' : ''}`}
-          title="Share your screen (nearby players see it above your dango)"
+          title="分享屏幕(附近的团子会看到浮在你头顶的画面)"
           onClick={() => voice.toggleScreen()}
         >
           🖥️
         </button>
-        <button className="btn" title="Inventory" onClick={() => ui.openPanel({ kind: 'inventory' })}>🎒</button>
-        <button className="btn" title="Customize dango" onClick={() => ui.openPanel({ kind: 'avatar' })}>🍡</button>
-        <button className="btn" title="Settings" onClick={() => ui.openPanel({ kind: 'settings' })}>⚙️</button>
+        <button className="btn" title="背包" onClick={() => ui.openPanel({ kind: 'inventory' })}>🎒</button>
+        <button className="btn" title="捏团子" onClick={() => ui.openPanel({ kind: 'avatar' })}>🍡</button>
+        <button className="btn" title="设置" onClick={() => ui.openPanel({ kind: 'settings' })}>⚙️</button>
       </div>
 
       {panel.kind !== 'none' && (

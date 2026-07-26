@@ -29,8 +29,8 @@ const STARTER_LAYOUT: Array<[string, number, number, number, number, string?]> =
 
 export function createDefaultRoom(db: DB, ownerId: number, ownerName: string): void {
   db.prepare('INSERT OR IGNORE INTO rooms (owner_id, name, visibility, media_control, style, notes) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(ownerId, `${ownerName}'s Room`, 'public', 'owner', JSON.stringify(DEFAULT_STYLE),
-      'Welcome to your personal room!\n\nPress E on furniture to use it. Open Room Editor (bottom bar) to redecorate.');
+    .run(ownerId, `${ownerName} 的小屋`, 'public', 'owner', JSON.stringify(DEFAULT_STYLE),
+      '欢迎来到你的小屋!\n\n对着家具按 E 就能使用;点右下角 ✏️ 打开房间编辑器,随心改造。');
   const insert = db.prepare(
     'INSERT INTO room_objects (owner_id, type, x, y, z, ry, color, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
@@ -80,13 +80,13 @@ export function addRoomObject(
   db: DB, ownerId: number, type: string, x: number, y: number, z: number, ry: number, color: string
 ): RoomObject | { error: string } {
   const def = FURNITURE_BY_TYPE[type];
-  if (!def) return { error: 'Unknown furniture type.' };
+  if (!def) return { error: '未知的家具类型。' };
   const count = db.prepare('SELECT COUNT(*) AS n FROM room_objects WHERE owner_id = ?').get(ownerId) as { n: number };
-  if (count.n >= ROOM_MAX_OBJECTS) return { error: `Room is full (max ${ROOM_MAX_OBJECTS} objects).` };
+  if (count.n >= ROOM_MAX_OBJECTS) return { error: `房间放满啦(上限 ${ROOM_MAX_OBJECTS} 件)。` };
   if (x < ROOM_BOUNDS.minX + 0.1 || x > ROOM_BOUNDS.maxX - 0.1 || z < ROOM_BOUNDS.minZ + 0.1 || z > ROOM_BOUNDS.maxZ - 0.1) {
-    return { error: 'Out of room bounds.' };
+    return { error: '超出房间范围了。' };
   }
-  if (y < 0 || y > 2.4) return { error: 'Invalid height.' };
+  if (y < 0 || y > 2.4) return { error: '高度不合适。' };
   const info = db.prepare(
     'INSERT INTO room_objects (owner_id, type, x, y, z, ry, color, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(ownerId, type, x, y, z, ry, color, '{}');

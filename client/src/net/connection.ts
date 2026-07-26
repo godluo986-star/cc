@@ -209,6 +209,12 @@ class Connection {
       case 'game_lo':
         world.setLo(d as S2CMap['game_lo']);
         break;
+      case 'game_xq':
+        world.setXq(d as S2CMap['game_xq']);
+        break;
+      case 'game_mj':
+        world.setMj(d as S2CMap['game_mj']);
+        break;
       case 'room_data':
         world.setRoom(d as S2CMap['room_data']);
         break;

@@ -39,10 +39,10 @@ function idleTexture(): THREE.CanvasTexture {
   ctx.fillStyle = '#5b8cff';
   ctx.font = '700 34px "Segoe UI", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('NEXUS SCREEN', 256, 130);
+  ctx.fillText('团子影像', 256, 130);
   ctx.fillStyle = '#9aa7bd';
   ctx.font = '18px "Segoe UI", sans-serif';
-  ctx.fillText('Press E nearby to put a website on screen', 256, 172);
+  ctx.fillText('走近按 E,把网页或视频放上屏幕', 256, 172);
   return new THREE.CanvasTexture(c);
 }
 
@@ -65,7 +65,7 @@ function SiteFrame({ media, w, h }: { media: MediaState; w: number; h: number })
         background: 'rgba(8,10,16,0.8)', color: '#9aa7bd', display: 'flex', gap: 8, pointerEvents: 'none',
       }}>
         <span>🌐 {safeHost(media.url!)}</span>
-        <span style={{ marginLeft: 'auto' }}>set by {media.setBy ?? '—'}</span>
+        <span style={{ marginLeft: 'auto' }}>由 {media.setBy ?? '—'} 放映</span>
       </div>
     </div>
   );
@@ -102,7 +102,7 @@ function OverlayVideo({ media, w, h }: { media: MediaState; w: number; h: number
   }, [mediaVolume]);
   const py = Math.round(PX * (h / w));
   if (err) {
-    return <div style={{ width: PX, height: py, ...overlayStyle }}>This video cannot be played (blocked or broken link).</div>;
+    return <div style={{ width: PX, height: py, ...overlayStyle }}>这个视频放不出来(链接失效或被拦截)。</div>;
   }
   return (
     <video
@@ -210,14 +210,14 @@ function YouTubeFrame({ media, w, h }: { media: MediaState; w: number; h: number
   return (
     <div style={{ width: PX, height: py, background: '#000', position: 'relative', overflow: 'hidden' }}>
       <div ref={holder} style={{ width: '100%', height: '100%' }} />
-      {status === 'loading' && <div style={overlayStyle}>Loading YouTube…</div>}
-      {status === 'error' && <div style={overlayStyle}>This video can't be embedded. Try another link.</div>}
+      {status === 'loading' && <div style={overlayStyle}>YouTube 加载中…</div>}
+      {status === 'error' && <div style={overlayStyle}>这个视频不允许嵌入,换一个试试。</div>}
       {status === 'ok' && muted && (
         <button onClick={unmute} style={{
           position: 'absolute', bottom: 10, left: 10, padding: '6px 12px', cursor: 'pointer',
           background: 'rgba(10,14,22,0.85)', color: '#fff', border: '1px solid #445', borderRadius: 8, fontSize: 14,
         }}>
-          🔇 Tap to unmute
+          🔇 点一下取消静音
         </button>
       )}
     </div>
