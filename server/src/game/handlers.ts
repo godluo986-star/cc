@@ -198,7 +198,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
       }
       sp.media = {
         url: null, kind: 'share', ownerId: owner.id, playing: true, position: 0, rate: 1,
-        loop: false, updatedAt: Date.now(), setBy: s.user.username,
+        loop: false, updatedAt: Date.now(), setBy: s.user.username, revision: (sp.media?.revision ?? 0) + 1,
       };
       broadcastMedia(sp);
       return;
@@ -211,7 +211,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     }
     sp.media = {
       url: classified.url, kind: classified.kind, playing: true, position: 0, rate: 1,
-      loop: d.loop ?? false, updatedAt: Date.now(), setBy: s.user.username,
+      loop: d.loop ?? false, updatedAt: Date.now(), setBy: s.user.username, revision: (sp.media?.revision ?? 0) + 1,
     };
     broadcastMedia(sp);
   },
@@ -243,11 +243,12 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
         m.position = sp.mediaPosition(now); m.rate = r; m.updatedAt = now; break;
       }
       case 'clear':
-        sp.media = { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: now, setBy: s.user.username };
+        sp.media = { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: now, setBy: s.user.username, revision: (sp.media?.revision ?? 0) + 1 };
         broadcastMedia(sp);
         return;
     }
     m.setBy = s.user.username;
+    m.revision = (m.revision ?? 0) + 1;
     broadcastMedia(sp);
   },
 

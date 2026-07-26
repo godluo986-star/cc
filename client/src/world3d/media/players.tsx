@@ -23,6 +23,26 @@ export function mediaTargetPosition(m: MediaState): number {
   return mediaPositionAt(m, serverNow());
 }
 
+/**
+ * 分层漂移纠偏(任务书 §八):阈值集中一处,严禁散落。
+ *  |drift| < DEAD          → 不动(防抖)
+ *  DEAD..RATE_ZONE         → playbackRate 微调 ±RATE_ADJ 追齐(不变调)
+ *  RATE_ZONE..SEEK_ZONE    → 一次受控 seek(带冷却,防连环跳)
+ *  > SEEK_ZONE / 换源      → 强制重同步
+ */
+export const SYNC = {
+  DEAD: 0.18,
+  RATE_ZONE: 0.8,
+  SEEK_ZONE: 2.0,
+  RATE_ADJ: 0.06,
+  SEEK_COOLDOWN_MS: 1800,
+  TICK_MS: 500,
+  /** YouTube 只支持档位倍速,微调走 seek:更宽的死区 + 更长冷却。 */
+  YT_DEAD: 0.3,
+  YT_SEEK: 1.2,
+  YT_COOLDOWN_MS: 2600,
+} as const;
+
 export interface PlayerProps {
   media: MediaState;
   /** CSS pixel size of the player surface. */
@@ -71,18 +91,51 @@ export function SyncedVideo({ media, px, py }: PlayerProps) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // 不变调微调(各浏览器字段名不同,全部尝试)
+    try {
+      (el as HTMLVideoElement & { preservesPitch?: boolean }).preservesPitch = true;
+      (el as HTMLVideoElement & { mozPreservesPitch?: boolean }).mozPreservesPitch = true;
+      (el as HTMLVideoElement & { webkitPreservesPitch?: boolean }).webkitPreservesPitch = true;
+    } catch { /* fine */ }
+    let lastSeekAt = 0;
     const sync = () => {
-      const target = mediaTargetPosition(media);
-      const cur = media.loop && el.duration > 0 ? target % el.duration : target;
-      if (Math.abs(el.currentTime - cur) > 1.25 && Number.isFinite(cur)) el.currentTime = cur;
-      el.playbackRate = media.rate;
+      const targetRaw = mediaTargetPosition(media);
+      const target = media.loop && el.duration > 0 ? targetRaw % el.duration : targetRaw;
+      if (!Number.isFinite(target)) return;
+
+      // 本地缓冲:不 seek 轰炸,等 canplay 再一次性追齐
+      if (media.playing && el.readyState < 3 && el.currentTime > 0) {
+        mediaRuntime.reportSync({ drift: 0, mode: 'buffer', rate: el.playbackRate, expected: target, local: el.currentTime });
+        return;
+      }
+
+      const drift = el.currentTime - target; // >0 超前, <0 落后
+      const ad = Math.abs(drift);
+      const now = performance.now();
+      if (ad < SYNC.DEAD) {
+        el.playbackRate = media.rate;
+        mediaRuntime.reportSync({ drift, mode: 'idle', rate: el.playbackRate, expected: target, local: el.currentTime });
+      } else if (ad < SYNC.RATE_ZONE && media.playing) {
+        // 轻微变速追齐:落后加速、超前减速(preservesPitch 已开,不变调)
+        el.playbackRate = media.rate * (1 - Math.sign(drift) * SYNC.RATE_ADJ);
+        mediaRuntime.reportSync({ drift, mode: 'rate', rate: el.playbackRate, expected: target, local: el.currentTime });
+      } else if (now - lastSeekAt > SYNC.SEEK_COOLDOWN_MS) {
+        // 一次受控 seek(冷却期内绝不连跳)
+        lastSeekAt = now;
+        el.currentTime = target;
+        el.playbackRate = media.rate;
+        mediaRuntime.reportSync({ drift, mode: 'seek', rate: el.playbackRate, expected: target, local: el.currentTime });
+      }
+
       if (media.playing && el.paused) el.play().catch(() => { el.muted = true; el.play().catch(() => setErr(true)); });
-      else if (!media.playing && !el.paused) el.pause();
+      else if (!media.playing && !el.paused) { el.pause(); el.currentTime = target; }
       mediaRuntime.report(el.currentTime, el.duration);
     };
     sync();
-    const iv = setInterval(sync, 900);
-    return () => clearInterval(iv);
+    const onCanPlay = () => sync();
+    el.addEventListener('canplay', onCanPlay);
+    const iv = setInterval(sync, SYNC.TICK_MS);
+    return () => { clearInterval(iv); el.removeEventListener('canplay', onCanPlay); };
   }, [media]);
   useEffect(() => {
     const el = ref.current;
@@ -183,15 +236,24 @@ export function YouTubeFrame({ media, px, py }: PlayerProps) {
   }, [videoId]);
 
   useEffect(() => {
+    let lastSeekAt = 0;
     const iv = setInterval(() => {
       const p = playerRef.current;
       if (!p || status !== 'ok' || typeof p.getCurrentTime !== 'function') return;
       try {
         const target = mediaTargetPosition(media);
         const cur = p.getCurrentTime() as number;
-        if (Math.abs(cur - target) > 1.6) p.seekTo(target, true);
-        if (typeof p.getPlaybackRate === 'function' && p.getPlaybackRate() !== media.rate) p.setPlaybackRate(media.rate);
         const state = p.getPlayerState();
+        const drift = cur - target;
+        // YT 缓冲(3)时不校正,等它自己恢复
+        if (state !== 3 && Math.abs(drift) > SYNC.YT_SEEK && performance.now() - lastSeekAt > SYNC.YT_COOLDOWN_MS) {
+          lastSeekAt = performance.now();
+          p.seekTo(target, true);
+          mediaRuntime.reportSync({ drift, mode: 'seek', rate: media.rate, expected: target, local: cur });
+        } else {
+          mediaRuntime.reportSync({ drift, mode: state === 3 ? 'buffer' : 'idle', rate: media.rate, expected: target, local: cur });
+        }
+        if (typeof p.getPlaybackRate === 'function' && p.getPlaybackRate() !== media.rate) p.setPlaybackRate(media.rate);
         if (media.playing && state !== 1 && state !== 3) p.playVideo();
         if (!media.playing && state === 1) p.pauseVideo();
         p.setVolume(Math.round(mediaVolume * 100));

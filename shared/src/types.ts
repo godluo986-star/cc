@@ -48,6 +48,8 @@ export interface MediaState {
   updatedAt: number;
   /** Username of who last changed it (display only). */
   setBy: string | null;
+  /** 单调递增的状态版本(服务器每次变更 +1;调试与乱序防护用)。 */
+  revision?: number;
 }
 
 // ── Music (procedural synth jukebox) ────────────────────────────────────────

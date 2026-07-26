@@ -159,7 +159,7 @@ export class World {
   clearShareIfOwner(space: Space, sessionId: number): void {
     const m = space.media;
     if (!m || m.kind !== 'share' || m.ownerId !== sessionId) return;
-    space.media = { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: Date.now(), setBy: m.setBy };
+    space.media = { url: null, kind: null, playing: false, position: 0, rate: 1, loop: false, updatedAt: Date.now(), setBy: m.setBy, revision: (m.revision ?? 0) + 1 };
     space.saveMedia();
     space.broadcast('media_state', space.media);
   }
