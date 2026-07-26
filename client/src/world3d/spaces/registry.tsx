@@ -20,7 +20,10 @@ import {
 } from '../prefabs/interactive';
 import MediaScreen from '../media/MediaScreen';
 import { Bookshelf } from '../prefabs/furniture';
-import { XiangqiTablePrefab, MahjongTablePrefab } from '../prefabs/gameTables';
+import { XiangqiTablePrefab, MahjongTablePrefab, RiichiTablePrefab } from '../prefabs/gameTables';
+import {
+  NcStation, NcCounter, GrTea, GrCounter, GrLantern,
+} from '../prefabs/venueInteriors';
 import {
   CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
   CPhone, CLocker, CManhole, CHydrant, CPlanter, CPier,
@@ -61,6 +64,12 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'coffee_table': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><CoffeeTable color="#6e5136" /></group>;
     case 'plant': return <group key={key} position={pos}><Plant color="#3f7d44" /></group>;
     case 'fireplace': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Fireplace color="#8a8078" state={{ on: true }} /></group>;
+    // ── 网吧 NEXUS / 雀庄「东风阁」室内专属件(P5,总纲 §4.4)──────────────
+    case 'nc_station': return <NcStation key={key} position={pos} ry={p.ry} seatIdx={(p.data?.seatIdx as number) ?? 0} />;
+    case 'nc_counter': return <NcCounter key={key} position={pos} ry={p.ry} />;
+    case 'gr_tea': return <GrTea key={key} position={pos} ry={p.ry} />;
+    case 'gr_counter': return <GrCounter key={key} position={pos} ry={p.ry} />;
+    case 'gr_lantern': return <GrLantern key={key} position={pos} />;
     // ── 「黄昏街区」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──────
     case 'c_lamp': return <CLamp key={key} position={pos} ry={p.ry} />;
     case 'c_vend': return (
@@ -112,10 +121,12 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'whiteboard': return (
       <WhiteboardSurface key={key} position={it.pos} rotation={it.ry} boardId={String(it.data?.boardId ?? it.id)} />
     );
-    // 影院超大银幕:几乎铺满整面前墙;其余空间的挂屏保持常规尺寸
+    // 影院超大银幕:几乎铺满整面前墙;网吧联赛大屏 6×3.4;其余挂屏常规尺寸
     case 'screen': return it.id === 'cine-screen'
       ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={16} height={6.4} />
-      : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
+      : it.id === 'nc-wall'
+        ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={6} height={3.4} />
+        : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
     case 'jukebox': return <Jukebox key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} />;
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'lightsout': return <LightsOutMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
@@ -153,6 +164,8 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
       return <XiangqiTablePrefab key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} tableId={it.id} />;
     case 'mahjong':
       return <MahjongTablePrefab key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} tableId={it.id} />;
+    case 'riichi':
+      return <RiichiTablePrefab key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} tableId={it.id} />;
     case 'seat':
     default:
       return null;

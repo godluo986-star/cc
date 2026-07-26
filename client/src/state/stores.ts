@@ -4,7 +4,7 @@ import type {
   SelfState, SpaceInit, PublicProfile, ChatMsg, MediaState, MusicState, WorldEnv,
   RoomData, BoardPost, Stroke, TicTacToeState, LightsOutState, DialogueNode,
   RoomDirectoryEntry, SeatStateEntry, AvatarConfig, InventoryEntry,
-  XiangqiState, MahjongView,
+  XiangqiState, MahjongView, RiichiView,
 } from '@nexuspark/shared';
 
 // ── Session / auth ──────────────────────────────────────────────────────────
@@ -58,6 +58,7 @@ interface WorldStore {
   lo: Record<string, LightsOutState>;
   xq: Record<string, XiangqiState>;
   mj: Record<string, MahjongView>;
+  rj: Record<string, RiichiView>;
   env: WorldEnv;
   voiceRoster: number[];
   /** 全服"全世界语音"广播者(可能在别的空间)。 */
@@ -80,6 +81,7 @@ interface WorldStore {
   setLo: (l: LightsOutState) => void;
   setXq: (t: XiangqiState) => void;
   setMj: (v: MahjongView) => void;
+  setRj: (v: RiichiView) => void;
   setEnv: (e: WorldEnv) => void;
   setVoiceRoster: (ids: number[], world: number[]) => void;
   setScreenRoster: (ids: number[]) => void;
@@ -100,6 +102,7 @@ export const useWorld = create<WorldStore>((set) => ({
   lo: {},
   xq: {},
   mj: {},
+  rj: {},
   env: { timeOfDay: 0.35, at: Date.now(), dayLengthSec: 1200, weather: 'clear' },
   voiceRoster: [],
   voiceWorldRoster: [],
@@ -120,6 +123,10 @@ export const useWorld = create<WorldStore>((set) => ({
     lo: Object.fromEntries(init.games.lightsout.map((l) => [l.machineId, l])),
     xq: Object.fromEntries(init.games.xiangqi.map((t) => [t.tableId, t])),
     mj: Object.fromEntries(init.games.mahjong.map((v) => [v.pub.tableId, v])),
+    // riichi 字段由并行工单并入 SpaceInit.games 类型;服务器已在发,先宽松读取
+    rj: Object.fromEntries(
+      ((init.games as { riichi?: RiichiView[] }).riichi ?? []).map((v) => [v.pub.tableId, v])
+    ),
     voiceRoster: init.voiceRoster,
     voiceWorldRoster: init.voiceWorldRoster,
     screenRoster: init.screenRoster,
@@ -146,6 +153,7 @@ export const useWorld = create<WorldStore>((set) => ({
   setLo: (l) => set((s) => ({ lo: { ...s.lo, [l.machineId]: l } })),
   setXq: (t) => set((s) => ({ xq: { ...s.xq, [t.tableId]: t } })),
   setMj: (v) => set((s) => ({ mj: { ...s.mj, [v.pub.tableId]: v } })),
+  setRj: (v) => set((s) => ({ rj: { ...s.rj, [v.pub.tableId]: v } })),
   setEnv: (env) => set({ env }),
   setVoiceRoster: (voiceRoster, voiceWorldRoster) => set({ voiceRoster, voiceWorldRoster }),
   setScreenRoster: (screenRoster) => set({ screenRoster }),
@@ -179,6 +187,7 @@ export type PanelKind =
   | { kind: 'lightsout'; machineId: string }
   | { kind: 'xiangqi'; tableId: string }
   | { kind: 'mahjong'; tableId: string }
+  | { kind: 'riichi'; tableId: string }
   | { kind: 'vending'; vendId: string; items: string[] }
   | { kind: 'kiosk' }
   | { kind: 'elevator' }

@@ -147,6 +147,9 @@ export function performAction(t: Target): void {
     case 'mahjong':
       ui.openPanel({ kind: 'mahjong', tableId: t.id });
       break;
+    case 'riichi':
+      ui.openPanel({ kind: 'riichi', tableId: t.id });
+      break;
     case 'lightsout':
       ui.openPanel({ kind: 'lightsout', machineId: t.id });
       break;

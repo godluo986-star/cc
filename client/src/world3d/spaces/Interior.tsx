@@ -7,6 +7,7 @@ import { LAYOUTS } from '@nexuspark/shared';
 import type { SpaceLayout } from '@nexuspark/shared';
 import { useWorld, useSettings } from '../../state/stores';
 import { renderProp, renderInteractable } from './registry';
+import { NetcafeExtras, GameroomExtras } from '../prefabs/venueInteriors';
 import { plankTexture, tileTexture, marbleTexture, carpetTexture, gridGlowTexture } from './textures';
 
 interface Gap { side: 'n' | 's' | 'e' | 'w'; center: number; width: number; }
@@ -75,6 +76,29 @@ const CONFIGS: Record<string, InteriorConfig> = {
       { x: 5, z: -3, color: '#ffe8c0', intensity: 6 },
     ],
     windows: [{ side: 's', center: -4.5, w: 2.4 }, { side: 's', center: 4.5, w: 2.4 }],
+  },
+  // ── 网吧 NEXUS(P5,总纲 §4.4):深蓝灰墙 + 发光网格地板 + 蓝青灯,克制 ──
+  netcafe: {
+    wallColor: '#2a3040', trimColor: '#1b2030', ceilingColor: '#1e2434', height: 4.4,
+    floor: 'grid', gaps: [{ side: 's', center: 0, width: 2.2 }],
+    lightSwitchId: 'nc-lights',
+    lights: [
+      { x: 0, z: -3, color: '#7ea6d9', intensity: 7.5 },
+      { x: 0, z: 1.2, color: '#7ea6d9', intensity: 7.5 },
+      { x: 6, z: 4.4, color: '#e8a84c', intensity: 4 }, // 前台一盏暖灯(§1「近处永远有暖灯」)
+    ],
+    neon: false,
+  },
+  // ── 雀庄「东风阁」(P5,总纲 §4.4):暖木 + 木板地 + 暖橙灯笼光 ──────────
+  gameroom: {
+    wallColor: '#4a3b30', trimColor: '#2c231b', ceilingColor: '#332a22', height: 3.4,
+    floor: 'planks', gaps: [{ side: 's', center: 0, width: 2.2 }],
+    lightSwitchId: 'gr-lights',
+    lights: [
+      { x: -3.4, z: -1.6, color: '#ffc98a', intensity: 7 },
+      { x: 3.4, z: -1.6, color: '#ffc98a', intensity: 7 },
+      { x: 0, z: 3.6, color: '#ffc98a', intensity: 5 },
+    ],
   },
 };
 
@@ -233,6 +257,10 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
           </mesh>
         </group>
       )}
+
+      {/* 场馆专属挂件(P5):网吧墙面灯带 / 雀庄障子窗 + 役种挂轴 */}
+      {spaceKey === 'netcafe' && <NetcafeExtras lightsOn={lightsOn} />}
+      {spaceKey === 'gameroom' && <GameroomExtras lightsOn={lightsOn} />}
 
       {layout.props.map((p, i) => renderProp(p, i))}
       {layout.interactables.map((it) => renderInteractable(it, it.id))}

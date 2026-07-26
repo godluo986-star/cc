@@ -223,6 +223,9 @@ class Connection {
       case 'game_mj':
         world.setMj(d as S2CMap['game_mj']);
         break;
+      case 'game_rj':
+        world.setRj(d as S2CMap['game_rj']);
+        break;
       case 'room_data':
         world.setRoom(d as S2CMap['room_data']);
         break;

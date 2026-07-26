@@ -7,6 +7,8 @@ import { useWorld, useSettings } from '../../state/stores';
 import { sampleEnv, currentTod } from './daynight';
 import { hot } from '../../state/hot';
 import { audio } from '../../audio/engine';
+import { anomalyPollution } from '../city/anomalies';
+import { ENV, ACCENT } from '../city/palette';
 
 const SKY_VERT = /* glsl */ `
 varying vec3 vDir;
@@ -380,6 +382,12 @@ function Rain({ activeRef }: { activeRef: React.MutableRefObject<boolean> }) {
 // 阴天云偏灰、雨天云偏暗灰紫(在 daynight 给的 cloudTint 基础上再压)
 const CLOUD_TINT_CLOUDY = new THREE.Color('#b9b6c4');
 const CLOUD_TINT_RAIN = new THREE.Color('#77718f');
+// 超自然色污染目标(§3.5:异常点半径内环境光被 lerp 0.2 拉向蓝紫)
+const POLLUTION_TINT = new THREE.Color(ACCENT.anomalyViolet);
+// 室内 hemisphere 与户外昼夜标定解耦(P4 只重标户外;室内有自己的灯,§3)
+const INDOOR_HEMI_SKY = new THREE.Color('#9aa0b4');
+const INDOOR_HEMI_GROUND = new THREE.Color('#54504c');
+const INDOOR_HEMI_INTENSITY = 0.45;
 
 export default function SkySystem({ indoor }: { indoor: boolean }) {
   const env = useWorld((s) => s.env);
@@ -393,7 +401,9 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
   const cloudTint = useRef(new THREE.Color('#ffffff'));
   const cloudCover = useRef(0.5);
   const rainActive = useRef(false);
-  const fog = useMemo(() => new THREE.Fog('#bcd8f0', 60, 240), []);
+  // 分层雾(§2.1 近 #3d4257 → 远 #585d73):颜色按昼夜由 daynight 插值,
+  // 这里给基础距离;近端压近一点,黄昏街区靠雾吃掉背景剪影层次。
+  const fog = useMemo(() => new THREE.Fog(ENV.fogNear, 48, 235), []);
 
   const uniforms = useMemo(() => ({
     topColor: { value: new THREE.Color('#3d7edb') },
@@ -433,9 +443,22 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
       moonRef.current.target.updateMatrixWorld();
     }
     if (hemiRef.current) {
-      hemiRef.current.intensity = indoor ? s.hemiIntensity * 0.55 : s.hemiIntensity;
-      hemiRef.current.color.copy(s.hemiSky);
-      hemiRef.current.groundColor.copy(s.hemiGround);
+      if (indoor) {
+        // 室内固定中性底光,不随户外「黄昏→夜」标定变化(室内空间自带灯光)
+        hemiRef.current.intensity = INDOOR_HEMI_INTENSITY;
+        hemiRef.current.color.copy(INDOOR_HEMI_SKY);
+        hemiRef.current.groundColor.copy(INDOOR_HEMI_GROUND);
+      } else {
+        hemiRef.current.intensity = s.hemiIntensity;
+        hemiRef.current.color.copy(s.hemiSky);
+        hemiRef.current.groundColor.copy(s.hemiGround);
+        // 异常点色污染接线(§3.5;anomalies.tsx 每帧更新 0..1)
+        const pol = anomalyPollution.current;
+        if (pol > 0.01) {
+          hemiRef.current.color.lerp(POLLUTION_TINT, 0.2 * pol);
+          hemiRef.current.groundColor.lerp(POLLUTION_TINT, 0.12 * pol);
+        }
+      }
     }
     starOpacity.current = indoor ? 0 : s.starOpacity;
     // 云染色:白天≈纯白,夜晚随天光变暗(cloudTint 由 daynight 采样而来,不会夜里发亮)
@@ -447,8 +470,10 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
 
     if (!indoor) {
       fog.color.copy(s.fogColor);
-      fog.near = 60 / s.fogDensityMul;
-      fog.far = 260 / s.fogDensityMul;
+      const pol = anomalyPollution.current;
+      if (pol > 0.01) fog.color.lerp(POLLUTION_TINT, 0.08 * pol);
+      fog.near = 48 / s.fogDensityMul;
+      fog.far = 235 / s.fogDensityMul;
       scene.fog = fog;
     } else {
       scene.fog = null;

@@ -4,6 +4,7 @@ import { useSession, useSettings, useUI, useWorld } from './state/stores';
 import { hot } from './state/hot';
 import Scene from './world3d/Scene';
 import HUD from './ui/HUD';
+import LoadingScreen from './ui/LoadingScreen';
 import { voice } from './voice/voice';
 import { connection } from './net/connection';
 
@@ -46,7 +47,7 @@ export default function WorldApp() {
           <Canvas
             shadows={shadows}
             dpr={dpr}
-            camera={{ fov: 60, near: 0.1, far: 600, position: [0, 3, 8] }}
+            camera={{ fov: 42, near: 0.1, far: 600, position: [0, 3, 8] }}
             gl={{ antialias: true, powerPreference: 'high-performance' }}
             onCreated={({ scene }) => { (window as unknown as { __nxScene?: unknown }).__nxScene = scene; }}
           >
@@ -61,6 +62,8 @@ export default function WorldApp() {
         </div>
       )}
       <div className="fade-overlay" style={{ opacity: fade ? 1 : 0 }} />
+      {/* P4 加载进度覆盖层(叠在旧 loading-overlay 之上,阶段式进度) */}
+      <LoadingScreen />
       <HUD />
     </>
   );
