@@ -82,7 +82,15 @@ class Connection {
     if (this.connected) this.ws!.send(encode(t, d));
   }
 
-  /** Movement input, throttled to INPUT_RATE. */
+  /**
+   * Movement input, throttled to INPUT_RATE.
+   *
+   * 挣扎语义:当自己被抓(hot.local.grabbedBy != null)时,这条 input 的 p
+   * 不再驱动位移 —— 服务器把「p 相对被抓者实际位置的偏移方向」当作挣扎力
+   * 累积(积满 ESCAPE_BREAK 秒即挣脱)。LocalPlayer 在被抓时负责把
+   * l.x/y/z 设为「服务器快照位置 + 输入方向的小偏移」,因此这里照常读取
+   * hot.local 即可,消息格式与频率完全不变。
+   */
   sendInput(force = false): void {
     const now = performance.now();
     if (!force && now - this.lastInputSent < 1000 / INPUT_RATE) return;
@@ -246,6 +254,12 @@ class Connection {
       case 'correction': {
         const c = d as S2CMap['correction'];
         hot.local.x = c.p[0]; hot.local.y = c.p[1]; hot.local.z = c.p[2];
+        break;
+      }
+      case 'grab_state': {
+        // 双向维护 hot 上的 grabbedBy/grabbing;released/broken 清理。
+        // toast 已由服务器发,客户端不重复弹提示。
+        hot.applyGrabState(d as S2CMap['grab_state']);
         break;
       }
       case 'toast': {

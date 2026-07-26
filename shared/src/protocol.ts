@@ -106,6 +106,13 @@ export const c2s = {
     kind: z.enum(['offer', 'answer', 'ice']),
     payload: z.string().max(20000),
   }),
+  /** 抓取(按住即抓、松手即放);服务器逐条校验(距离/遮挡/占用)。 */
+  grab: z.object({
+    op: z.enum(['start', 'move', 'end']),
+    targetId: z.number().int().optional(),              // start 必带:目标会话 id
+    point: z.tuple([finite, finite, finite]).optional(), // start:目标身体局部抓取点(|p|≤0.6)
+    target: z.tuple([finite, finite, finite]).optional(), // move:抓取者期望的把持点世界坐标(15Hz 随 input 节流)
+  }),
   elevator_list: z.object({}),
   ping: z.object({ t: z.number() }),
 } as const;
@@ -145,6 +152,8 @@ export interface S2CMap {
   screen_roster: { ids: number[] };
   rtc: { from: number; kind: 'offer' | 'answer' | 'ice'; payload: string };
   correction: { p: [number, number, number] };
+  /** 抓取状态广播;被抓者位置继续走既有 10Hz snap,不新增位置通道。 */
+  grab_state: { grabberId: number; targetId: number; pointLocal: [number, number, number]; phase: 'held' | 'released' | 'broken' };
   toast: { level: 'info' | 'warn' | 'error'; text: string };
   kicked: { reason: string };
   pong: { t: number };

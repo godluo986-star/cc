@@ -8,6 +8,8 @@ import {
   SPACE, LAYOUTS, isRoomSpace, roomOwnerId, roomSpaceKey, ROOM_SPAWN,
   DAY_LENGTH_SEC, DAY_START_FRACTION, WEATHERS, WEATHER_MIN_SEC, WEATHER_MAX_SEC,
   SNAPSHOT_RATE, encode, RESUME_GRACE_MS,
+  clampToBounds, resolveCollisions, floorHeightAt, PLAYER_RADIUS, dist3d,
+  SPRING_K, DAMPING, MAX_FORCE, MASS, MAX_VEL, BREAK_DIST, ESCAPE_BREAK,
 } from '@nexuspark/shared';
 import type { Weather, WorldEnv, SpaceInit, SelfState, InventoryEntry, ChatMsg } from '@nexuspark/shared';
 import { loadRoom } from './roomService';
@@ -121,6 +123,7 @@ export class World {
   leaveCurrent(session: Session, reason?: string): void {
     const space = this.spaces.get(session.spaceKey);
     if (!space) return;
+    this.releaseGrabsFor(session); // 抓取者/被抓者任一方离开 → 解除并广播 released
     this.releaseSeat(session, space);
     space.dropFromGames(session);
     space.sessions.delete(session);
@@ -169,6 +172,134 @@ export class World {
     space.seatOcc.delete(session.seatId);
     space.broadcast('seat', { seatId: session.seatId, playerId: session.id, released: true });
     session.seatId = null;
+  }
+
+  // ── 抓取(服务器权威点质量模拟)────────────────────────────────────────────
+  /** 该会话涉及的所有抓取关系一并解除(离开空间/断线时调用)。 */
+  releaseGrabsFor(session: Session): void {
+    if (session.grabbing !== null) this.releaseGrab(session, 'released');
+    if (session.grabbedBy !== null) {
+      const grabber = this.sessionsById.get(session.grabbedBy);
+      if (grabber && grabber.grabbing === session.id) this.releaseGrab(grabber, 'released');
+      session.grabbedBy = null;
+      session.escapeDir = [0, 0, 0];
+      session.escapeAccum = 0;
+    }
+  }
+
+  /** 解除 grabber 的抓取;phase: released(松手/被动解除)或 broken(拉断/挣脱)。 */
+  releaseGrab(grabber: Session, phase: 'released' | 'broken'): void {
+    const targetId = grabber.grabbing;
+    if (targetId === null) return;
+    const pointLocal = grabber.grabPointLocal ?? ([0, 0, 0] as [number, number, number]);
+    grabber.grabbing = null;
+    grabber.grabPointLocal = null;
+    grabber.grabTargetWorld = null;
+    const target = this.sessionsById.get(targetId) ?? null;
+    if (target && target.grabbedBy === grabber.id) {
+      target.grabbedBy = null;
+      target.escapeAccum = 0;
+      target.escapeDir = [0, 0, 0];
+      // 保留当前 grabVel:离地/带速则进入自然抛落阶段,落地即恢复
+      const sp2 = this.spaces.get(target.spaceKey);
+      const floor = sp2 ? floorHeightAt(sp2.layout, target.x, target.z) : 0;
+      const speed = Math.hypot(target.grabVel[0], target.grabVel[1], target.grabVel[2]);
+      target.grabAirborne = target.y > floor + 0.03 || speed > 0.5;
+      if (!target.grabAirborne) target.grabVel = [0, 0, 0];
+    }
+    const sp = this.spaces.get(grabber.spaceKey) ?? (target ? this.spaces.get(target.spaceKey) : undefined);
+    sp?.broadcast('grab_state', { grabberId: grabber.id, targetId, pointLocal, phase });
+    if (phase === 'broken') {
+      send(grabber, 'toast', { level: 'info', text: '没抓住,溜了。' });
+      if (target) send(target, 'toast', { level: 'info', text: '挣脱了!' });
+    }
+  }
+
+  /** 每 tick:对本空间所有被抓/抛落中的会话做弹簧-重力积分与解算。 */
+  tickGrabs(space: Space, dt: number): void {
+    for (const t of [...space.sessions]) {
+      if (t.grabbedBy === null) {
+        if (t.grabAirborne) this.tickFall(space, t, dt);
+        continue;
+      }
+      const g = this.sessionsById.get(t.grabbedBy);
+      if (!g || g.grabbing !== t.id || g.spaceKey !== t.spaceKey) {
+        // 悬空引用(理论上不该发生):就地清理
+        t.grabbedBy = null;
+        t.escapeDir = [0, 0, 0];
+        t.escapeAccum = 0;
+        continue;
+      }
+      const target = g.grabTargetWorld ?? [t.x, t.y, t.z];
+      const v = t.grabVel;
+      // 弹簧:F = K*(target-pos) - DAMPING*vel,‖F‖≤MAX_FORCE
+      let fx = SPRING_K * (target[0] - t.x) - DAMPING * v[0];
+      let fy = SPRING_K * (target[1] - t.y) - DAMPING * v[1];
+      let fz = SPRING_K * (target[2] - t.z) - DAMPING * v[2];
+      const fn = Math.hypot(fx, fy, fz);
+      if (fn > MAX_FORCE) { const k = MAX_FORCE / fn; fx *= k; fy *= k; fz *= k; }
+      fy -= 9.8 * MASS; // 重力
+      // 挣扎:方向非零加 6N 力并积累时间;方向为零缓慢衰减
+      const ed = t.escapeDir;
+      if (Math.hypot(ed[0], ed[1], ed[2]) > 1e-3) {
+        fx += ed[0] * 6; fy += ed[1] * 6; fz += ed[2] * 6;
+        t.escapeAccum += dt;
+      } else {
+        t.escapeAccum = Math.max(0, t.escapeAccum - dt * 0.5);
+      }
+      // 积分 + 限速
+      v[0] += (fx / MASS) * dt; v[1] += (fy / MASS) * dt; v[2] += (fz / MASS) * dt;
+      const vn = Math.hypot(v[0], v[1], v[2]);
+      if (vn > MAX_VEL) { const k = MAX_VEL / vn; v[0] *= k; v[1] *= k; v[2] *= k; }
+      let nx = t.x + v[0] * dt, ny = t.y + v[1] * dt, nz = t.z + v[2] * dt;
+      if (!Number.isFinite(nx + ny + nz)) { this.grabSafetyReset(space, g, t); continue; }
+      // 共享碰撞解算:不穿墙、不出界、不穿地
+      [nx, nz] = clampToBounds(nx, nz, space.layout.bounds);
+      [nx, nz] = resolveCollisions(nx, nz, PLAYER_RADIUS, space.colliders);
+      const floor = floorHeightAt(space.layout, nx, nz);
+      if (ny <= floor) { ny = floor; if (v[1] < 0) v[1] = 0; }
+      t.x = nx; t.y = ny; t.z = nz;
+      if (t.y < -4) { this.grabSafetyReset(space, g, t); continue; }
+      // 断裂:拉太远,或挣扎积累够秒数
+      if (dist3d(t.x, t.y, t.z, g.x, g.y, g.z) > BREAK_DIST || t.escapeAccum >= ESCAPE_BREAK) {
+        this.releaseGrab(g, 'broken');
+      }
+    }
+  }
+
+  /** 松手/挣脱后的自由抛落:重力积分直到落地。 */
+  private tickFall(space: Space, t: Session, dt: number): void {
+    const v = t.grabVel;
+    v[1] -= 9.8 * dt;
+    const vn = Math.hypot(v[0], v[1], v[2]);
+    if (vn > MAX_VEL) { const k = MAX_VEL / vn; v[0] *= k; v[1] *= k; v[2] *= k; }
+    let nx = t.x + v[0] * dt, ny = t.y + v[1] * dt, nz = t.z + v[2] * dt;
+    if (!Number.isFinite(nx + ny + nz)) { this.grabSafetyReset(space, null, t); return; }
+    [nx, nz] = clampToBounds(nx, nz, space.layout.bounds);
+    [nx, nz] = resolveCollisions(nx, nz, PLAYER_RADIUS, space.colliders);
+    const floor = floorHeightAt(space.layout, nx, nz);
+    if (ny <= floor) {
+      ny = floor;
+      t.grabAirborne = false;
+      t.grabVel = [0, 0, 0];
+    } else {
+      const drag = Math.pow(0.5, dt);
+      v[0] *= drag; v[2] *= drag;
+    }
+    t.x = nx; t.y = ny; t.z = nz;
+    if (t.y < -4) this.grabSafetyReset(space, null, t);
+  }
+
+  /** 安全复位:坐标 NaN 或掉出世界(y<-4)→ 释放并送回本空间出生点。 */
+  private grabSafetyReset(space: Space, grabber: Session | null, t: Session): void {
+    if (grabber) this.releaseGrab(grabber, 'released');
+    const [sx, sy, sz, sry] = space.layout.spawn;
+    t.x = sx; t.y = sy; t.z = sz; t.ry = sry;
+    t.grabVel = [0, 0, 0];
+    t.grabAirborne = false;
+    t.escapeDir = [0, 0, 0];
+    t.escapeAccum = 0;
+    send(t, 'toast', { level: 'info', text: '摔出了世界边缘,已把你送回出生点。' });
   }
 
   disconnect(session: Session, kicked = false): void {
@@ -322,6 +453,7 @@ export class World {
       if (space.sessions.size > 0) {
         space.tickNpcs(dt, now);
         space.tickBall(dt);
+        this.tickGrabs(space, dt);
         for (const table of space.mj.values()) {
           if (table.tick(now)) {
             space.broadcastMahjong(table);

@@ -6,7 +6,7 @@ import type { AvatarConfig } from '@nexuspark/shared';
 
 export function SettingsPanel() {
   const s = useSettings();
-  const Toggle = ({ label, k }: { label: string; k: 'shadows' | 'postfx' | 'reflections' | 'particles' | 'clouds' | 'invertY' }) => (
+  const Toggle = ({ label, k }: { label: string; k: 'shadows' | 'postfx' | 'reflections' | 'particles' | 'clouds' | 'invertY' | 'reduceMotion' }) => (
     <label className="row" style={{ fontSize: 13 }}>
       <input type="checkbox" checked={s[k]} onChange={(e) => s.set({ [k]: e.target.checked })} />
       {label}
@@ -34,6 +34,8 @@ export function SettingsPanel() {
         <Toggle label="反射与镜面" k="reflections" />
         <Toggle label="天气粒子" k="particles" />
         <Toggle label="云朵" k="clouds" />
+        {/* 被抓着升降时进一步钳制相机高度变化速率(第一人称防晕) */}
+        <Toggle label="减少镜头运动" k="reduceMotion" />
       </div>
       <hr className="hr" />
       <div className="title" style={{ fontSize: 13 }}>音量</div>
@@ -87,6 +89,7 @@ export function HelpPanel() {
       <div><K>W A S D</K> 蹦跶移动 · <K>Shift</K> 狂奔 · <K>空格</K> 跳跳</div>
       <div><K>鼠标拖动</K> 旋转视角 · <K>滚轮</K> 缩放</div>
       <div><K>E</K> 与提示中的东西互动</div>
+      <div><K>G</K> 长按抓住附近团子(按住即抓、松手即放) · <K>V</K> 切换第一人称</div>
       <div><K>回车</K> 聊天 · <K>1–5</K> 表情(挥手/跳舞/鼓掌/指一指/大笑)</div>
       <div><K>Esc</K> 关闭面板 / 取消编辑</div>
       <hr className="hr" />
@@ -95,6 +98,8 @@ export function HelpPanel() {
         给自己房间的电视放个网站 · 点 ✏️ 重新装修房间 · 开 🎙 就近语音(离得越近听得越清)·
         开 📢 全世界语音(不管在哪个房间,全服都听得到你)·
         开 🖥️ 分享屏幕,画面会浮在你的团子头顶(720p·30帧)——五只团子排排坐各自开屏,大家围观。
+        还可以走到别的团子跟前长按 G 把它抓起来拖着走、举过头顶——被抓的团子可以按方向键挣扎,
+        攒够劲就能挣脱;容易晕 3D 的话到设置里打开「减少镜头运动」。
       </div>
     </div>
   );

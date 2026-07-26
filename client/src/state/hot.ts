@@ -19,6 +19,10 @@ export interface RemoteEntity {
   emoteUntil: number;
   /** Live voice activity level 0..1 (from WebRTC analyser). */
   voiceLevel: number;
+  /** 抓取:谁抓着这只团子(会话 id;null=没被抓)。 */
+  grabbedBy: number | null;
+  /** 抓取:身体局部抓取点(驱动侧倾表现)。 */
+  grabPointLocal: [number, number, number] | null;
 }
 
 export interface LocalState {
@@ -35,11 +39,19 @@ export interface LocalState {
   speaking: boolean;
   /** Walk cycle phase for footstep sounds. */
   stepPhase: number;
+  /** 被谁抓着(会话 id;非空 → 本地预测暂停,吸附服务器快照)。 */
+  grabbedBy: number | null;
+  /** 自己正抓着谁(会话 id)。 */
+  grabbing: number | null;
+  /** 自己被抓时的身体局部抓取点(侧倾表现用)。 */
+  grabPointLocal: [number, number, number] | null;
 }
 
 export interface CameraRig {
   yaw: number; pitch: number; dist: number;
   shake: number;
+  /** 'third' 第三人称跟随;'first' 第一人称(V 键切换)。 */
+  mode: 'third' | 'first';
 }
 
 export interface BallState { x: number; y: number; z: number; active: boolean; rx: number; rz: number; }
@@ -49,10 +61,12 @@ class HotState {
   local: LocalState = {
     x: 0, y: 0, z: 0, ry: 0, vy: 0, grounded: true, anim: 0,
     held: 0, heldUntil: 0, emoteAnim: 0, emoteUntil: 0, seatId: null, seatRy: 0,
-    speaking: false, stepPhase: 0,
+    speaking: false, stepPhase: 0, grabbedBy: null, grabbing: null, grabPointLocal: null,
   };
-  camera: CameraRig = { yaw: Math.PI, pitch: 0.32, dist: 5.2, shake: 0 };
+  camera: CameraRig = { yaw: Math.PI, pitch: 0.32, dist: 5.2, shake: 0, mode: 'third' };
   players = new Map<number, RemoteEntity>();
+  /** 自己在服务器 10Hz snap 里的最新条目(被抓时本地预测吸附它)。 */
+  selfSnap: SnapPoint | null = null;
   ball: BallState = { x: 0, y: 0, z: 0, active: false, rx: 0, rz: 0 };
   /** Server time offset estimate (serverNow ≈ Date.now() + offset). */
   serverTimeOffset = 0;
@@ -68,6 +82,8 @@ class HotState {
     [l.x, l.y, l.z, l.ry] = spawn;
     l.vy = 0; l.grounded = true; l.anim = 0; l.seatId = null;
     l.emoteUntil = 0;
+    l.grabbedBy = null; l.grabbing = null; l.grabPointLocal = null;
+    this.selfSnap = null;
     this.camera.yaw = spawn[3] + Math.PI; // behind the player
   }
 
@@ -76,7 +92,7 @@ class HotState {
     if (!e) {
       e = {
         id: profile.id, profile, buf: [], x: 0, y: 0, z: 0, ry: 0, st: 0,
-        emoteAnim: 0, emoteUntil: 0, voiceLevel: 0,
+        emoteAnim: 0, emoteUntil: 0, voiceLevel: 0, grabbedBy: null, grabPointLocal: null,
       };
       this.players.set(profile.id, e);
     } else {
@@ -91,7 +107,12 @@ class HotState {
 
   applySnapshot(t: number, snaps: EntitySnap[], objs?: [string, number, number, number][]): void {
     for (const [id, x, y, z, ry, st] of snaps) {
-      if (id === this.selfId) continue; // local player is client-predicted
+      if (id === this.selfId) {
+        // 本地玩家通常走客户端预测,跳过;但记录最新条目 —— 被抓时
+        // (local.grabbedBy != null)LocalPlayer 每帧向这里吸附(升降跟随服务器)。
+        this.selfSnap = { t, x, y, z, ry, st };
+        continue;
+      }
       const e = this.players.get(id);
       if (!e) continue; // profile not yet known (join msg races snapshot)
       e.buf.push({ t, x, y, z, ry, st });
@@ -132,6 +153,23 @@ class HotState {
       e.z = a.z + (b.z - a.z) * f;
       e.ry = angleLerp(a.ry, b.ry, Math.min(1, f));
       e.st = f < 0.5 ? a.st : b.st;
+    }
+  }
+
+  /** grab_state 分发:维护本地/远端双向抓取字段;released/broken 清理。 */
+  applyGrabState(g: { grabberId: number; targetId: number; pointLocal: [number, number, number]; phase: 'held' | 'released' | 'broken' }): void {
+    const held = g.phase === 'held';
+    if (g.grabberId === this.selfId) {
+      this.local.grabbing = held ? g.targetId : null;
+    }
+    if (g.targetId === this.selfId) {
+      this.local.grabbedBy = held ? g.grabberId : null;
+      this.local.grabPointLocal = held ? g.pointLocal : null;
+    }
+    const te = this.players.get(g.targetId);
+    if (te) {
+      te.grabbedBy = held ? g.grabberId : null;
+      te.grabPointLocal = held ? g.pointLocal : null;
     }
   }
 

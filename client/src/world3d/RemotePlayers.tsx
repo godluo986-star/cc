@@ -22,6 +22,21 @@ const RemoteAvatar = memo(function RemoteAvatar({ profile, sharing }: { profile:
     while (d < -Math.PI) d += Math.PI * 2;
     group.current.rotation.y = cur + d * Math.min(1, dt * 14);
 
+    // 被抓表现:按 grabPointLocal 侧倾(叠加在 animator 姿态之上,走外层
+    // group 通道);悬空时轻微竖向拉伸 1.05。地面高度无本地 layout 查询,
+    // 用 y>0.25 近似(城区地面基本为 0,轻表现可接受)。
+    let tRx = 0, tRz = 0, tSy = 1;
+    if (e.grabbedBy != null && e.grabPointLocal) {
+      tRz = THREE.MathUtils.clamp(e.grabPointLocal[0] * 1.15, -0.5, 0.5);
+      tRx = THREE.MathUtils.clamp(-e.grabPointLocal[2] * 1.15, -0.5, 0.5);
+      if (e.y > 0.25) tSy = 1.05;
+    }
+    const kt = Math.min(1, dt * 8);
+    group.current.rotation.x += (tRx - group.current.rotation.x) * kt;
+    group.current.rotation.z += (tRz - group.current.rotation.z) * kt;
+    const sy = group.current.scale.y + (tSy - group.current.scale.y) * kt;
+    group.current.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
+
     const { anim, speaking, held } = hot.remoteAnim(e);
     // horizontal speed estimate from the interp buffer
     let speed = 0;

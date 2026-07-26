@@ -10,9 +10,10 @@ import {
   WALK_SPEED, RUN_SPEED, JUMP_VELOCITY, GRAVITY, PLAYER_RADIUS,
   resolveCollisions, clampToBounds, floorHeightAt, LAYOUTS, isRoomSpace,
   ROOM_BOUNDS, Anim, EMOTES, INTERACT_RANGE, dist2d,
+  GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE,
 } from '@nexuspark/shared';
 import { hot } from '../state/hot';
-import { useWorld, useUI, useSession, useVoice } from '../state/stores';
+import { useWorld, useUI, useSession, useVoice, useSettings } from '../state/stores';
 import { connection } from '../net/connection';
 import { Avatar, type AvatarHandle } from './Avatar';
 import ScreenBillboard from './ScreenBillboard';
@@ -21,6 +22,8 @@ import { audio } from '../audio/engine';
 
 /** Interior ceiling heights for camera containment (rooms default to 3.0). */
 const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 7.2, arcade: 3.6, shop: 3.4, lobby: 4.2 };
+
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export default function LocalPlayer() {
   const avatarRef = useRef<AvatarHandle>(null);
@@ -34,6 +37,16 @@ export default function LocalPlayer() {
   const lastStep = useRef(0);
   const currentTarget = useRef<Target | null>(null);
   const seatTargets = useRef(new Map<string, Target>());
+  // ── 抓取 / 第一人称状态 ──
+  const grabCandidate = useRef<number | null>(null);
+  const grabHeld = useRef<false | 'key' | 'mouse'>(false);
+  const lastGrabMove = useRef(0);
+  const wasGrabbedBy = useRef<number | null>(null);
+  /** 第三↔第一人称过渡进度(0=third, 1=first;0.25s 线性)。 */
+  const fpBlend = useRef(0);
+  /** 平滑后的第一人称眼位高度(reduceMotion 被抓时降速)。 */
+  const eyeY = useRef(0);
+  const ringRef = useRef<THREE.Group>(null);
 
   const layout = useMemo(
     () => (isRoomSpace(spaceKey) ? null : LAYOUTS[spaceKey] ?? null),
@@ -47,6 +60,35 @@ export default function LocalPlayer() {
   }, [spaceKey, room]);
   const colliders = useMemo(() => buildColliders(spaceKey, room), [spaceKey, room]);
 
+  // ── 抓取输入:按住即抓、松手即放(长按 G,或鼠标左键按住准星内目标)────
+  const startGrab = (src: 'key' | 'mouse') => {
+    const l = hot.local;
+    if (hot.uiOpen || hot.chatFocused || useUI.getState().editMode) return;
+    if (grabHeld.current || l.grabbing != null || l.grabbedBy != null || l.seatId) return;
+    const id = grabCandidate.current;
+    if (id == null) return;
+    const e = hot.players.get(id);
+    if (!e) return;
+    // 抓取点近似:从相机到目标身体中心的连线,与半径 0.44 球面近侧交点,
+    // 转为身体局部偏移(|p|=0.44 ≤ 0.6,满足协议约束)
+    let dx = e.x - camera.position.x;
+    let dy = e.y + 0.31 - camera.position.y; // 0.31 ≈ 团子身体中心高
+    let dz = e.z - camera.position.z;
+    const dl = Math.hypot(dx, dy, dz) || 1;
+    dx /= dl; dy /= dl; dz /= dl;
+    grabHeld.current = src;
+    connection.send('grab', {
+      op: 'start', targetId: id,
+      point: [r3(-dx * 0.44), r3(-dy * 0.44), r3(-dz * 0.44)],
+    });
+  };
+  const endGrab = (src?: 'key' | 'mouse') => {
+    if (!grabHeld.current) return;
+    if (src && grabHeld.current !== src) return;
+    grabHeld.current = false;
+    connection.send('grab', { op: 'end' });
+  };
+
   // ── Keyboard ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -57,12 +99,21 @@ export default function LocalPlayer() {
       if (e.code === 'KeyE' && !hot.uiOpen) {
         if (currentTarget.current) performAction(currentTarget.current);
       }
+      // 长按 G 抓住附近团子(keydown 抓、keyup 放 = 按住即抓)
+      if (e.code === 'KeyG' && !e.repeat && !hot.uiOpen) startGrab('key');
+      // V 切换第一/第三人称
+      if (e.code === 'KeyV' && !e.repeat && !hot.uiOpen) {
+        hot.camera.mode = hot.camera.mode === 'first' ? 'third' : 'first';
+      }
       const emoteIdx = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(e.code);
       if (emoteIdx >= 0 && !hot.uiOpen) triggerEmote(EMOTES[emoteIdx].anim);
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     };
-    const up = (e: KeyboardEvent) => hot.keys.delete(e.code);
-    const blur = () => hot.keys.clear();
+    const up = (e: KeyboardEvent) => {
+      hot.keys.delete(e.code);
+      if (e.code === 'KeyG') endGrab('key');
+    };
+    const blur = () => { hot.keys.clear(); endGrab(); };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
@@ -80,6 +131,9 @@ export default function LocalPlayer() {
     let lastX = 0, lastY = 0;
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 2) return;
+      // 左键按住:准星/屏心 GRAB_RANGE 内有可抓团子且未开面板 → 按住即抓
+      // (拖动旋转视角与把持并存:按住期间拖动可调整把持方向/高度)
+      if (e.button === 0 && !hot.uiOpen && grabCandidate.current != null) startGrab('mouse');
       dragging = true;
       lastX = e.clientX; lastY = e.clientY;
       el.setPointerCapture(e.pointerId);
@@ -95,7 +149,11 @@ export default function LocalPlayer() {
         hot.camera.pitch + dy * 0.0045 * (invert ? -1 : 1), -0.5, 1.25
       );
     };
-    const onUp = (e: PointerEvent) => { dragging = false; try { el.releasePointerCapture(e.pointerId); } catch { /* fine */ } };
+    const onUp = (e: PointerEvent) => {
+      dragging = false;
+      if (e.button === 0) endGrab('mouse'); // 松手即放
+      try { el.releasePointerCapture(e.pointerId); } catch { /* fine */ }
+    };
     const onWheel = (e: WheelEvent) => {
       hot.camera.dist = THREE.MathUtils.clamp(hot.camera.dist + e.deltaY * 0.0035, 2.2, 10);
       e.preventDefault();
@@ -134,7 +192,39 @@ export default function LocalPlayer() {
     const moving = ix !== 0 || iz !== 0;
     const running = moving && (k.has('ShiftLeft') || k.has('ShiftRight'));
 
-    if (l.seatId) {
+    // 相机系移动方向(被抓时同样用它编码挣扎意图)
+    // 前向 = 相机指向角色的方向 (-sin,-cos);屏幕右 = 前向×上 = (cos,-sin)
+    const camYawNow = hot.camera.yaw;
+    const dirX = -(Math.sin(camYawNow) * iz) + Math.cos(camYawNow) * ix;
+    const dirZ = -(Math.cos(camYawNow) * iz) - Math.sin(camYawNow) * ix;
+    const dirLen = Math.hypot(dirX, dirZ) || 1;
+
+    // 挣脱/释放:以服务器位置为新起点恢复本地预测,防跳变
+    if (wasGrabbedBy.current != null && l.grabbedBy == null) {
+      const snap = hot.selfSnap;
+      if (snap) { l.x = snap.x; l.y = snap.y; l.z = snap.z; }
+      vel.current.x = 0; vel.current.z = 0; l.vy = 0;
+    }
+    wasGrabbedBy.current = l.grabbedBy;
+
+    if (l.grabbedBy != null) {
+      // 被抓:本地位移预测停用,每帧向服务器 10Hz snap 里自己的条目吸附
+      // (k=dt*12)。方向键不再驱动位移,但作为挣扎意图叠加一个小偏移进
+      // l.x/z —— sendInput 照发,服务器把 (p - 实际位置) 当挣扎力方向。
+      const snap = hot.selfSnap;
+      const kAttach = Math.min(1, dt * 12);
+      const ox = moving ? (dirX / dirLen) * 0.3 : 0;
+      const oz = moving ? (dirZ / dirLen) * 0.3 : 0;
+      if (snap) {
+        l.x += (snap.x + ox - l.x) * kAttach;
+        l.y += (snap.y - l.y) * kAttach;
+        l.z += (snap.z + oz - l.z) * kAttach;
+      }
+      vel.current.x = 0; vel.current.z = 0; l.vy = 0;
+      const floor = floorHeightAt(layout, l.x, l.z);
+      l.grounded = l.y <= floor + 0.05;
+      l.anim = l.grounded ? Anim.Idle : Anim.Jump;
+    } else if (l.seatId) {
       // Seated: locked to the seat; movement keys stand up
       const seat = seatTargets.current.get(l.seatId);
       if (seat) {
@@ -147,15 +237,13 @@ export default function LocalPlayer() {
       }
     } else {
       // Horizontal velocity, camera-relative
-      const yaw = hot.camera.yaw;
-      const targetSpeed = moving ? (running ? RUN_SPEED : WALK_SPEED) : 0;
-      // 前向 = 相机指向角色的方向 (-sin,-cos);屏幕右 = 前向×上 = (cos,-sin)
-      const dirX = -(Math.sin(yaw) * iz) + Math.cos(yaw) * ix;
-      const dirZ = -(Math.cos(yaw) * iz) - Math.sin(yaw) * ix;
-      const dl = Math.hypot(dirX, dirZ) || 1;
+      // 拖着人时服务器按 GRABBER_SLOW 减速,客户端把期望速度同步打折,
+      // 以免持续被 correction 拉扯(对跑/走统一生效)
+      const speedMul = l.grabbing != null ? GRABBER_SLOW : 1;
+      const targetSpeed = moving ? (running ? RUN_SPEED : WALK_SPEED) * speedMul : 0;
       const accel = l.grounded ? 26 : 9;
-      vel.current.x += ((dirX / dl) * targetSpeed - vel.current.x) * Math.min(1, accel * dt);
-      vel.current.z += ((dirZ / dl) * targetSpeed - vel.current.z) * Math.min(1, accel * dt);
+      vel.current.x += ((dirX / dirLen) * targetSpeed - vel.current.x) * Math.min(1, accel * dt);
+      vel.current.z += ((dirZ / dirLen) * targetSpeed - vel.current.z) * Math.min(1, accel * dt);
 
       let nx = l.x + vel.current.x * dt;
       let nz = l.z + vel.current.z * dt;
@@ -207,7 +295,33 @@ export default function LocalPlayer() {
 
     if (l.heldUntil > 0 && now > l.heldUntil) { l.held = 0; l.heldUntil = 0; }
 
-    // ── Camera rig ──
+    // ── 抓取候选扫描:准星/屏心方向 GRAB_RANGE 内最近的其他玩家团子 ──
+    let candId: number | null = null;
+    if (!inputBlocked && l.grabbing == null && l.grabbedBy == null && !l.seatId) {
+      const ffx = -Math.sin(hot.camera.yaw), ffz = -Math.cos(hot.camera.yaw);
+      let candScore = Infinity;
+      for (const e of hot.players.values()) {
+        if (e.profile.isNpc) continue; // 第一阶段:只抓玩家团子
+        const dx = e.x - l.x, dz = e.z - l.z;
+        const d = Math.hypot(dx, dz, e.y - l.y);
+        if (d > GRAB_RANGE || d < 0.05) continue;
+        const hl = Math.hypot(dx, dz) || 1;
+        const facing = (dx / hl) * ffx + (dz / hl) * ffz;
+        if (facing < 0.35) continue; // 需大致在准星/屏心方向
+        const score = d * (1.35 - facing);
+        if (score < candScore) { candScore = score; candId = e.id; }
+      }
+    }
+    grabCandidate.current = candId;
+    // 目标高亮:候选(或抓取中的目标)脚下画一个小圈
+    if (ringRef.current) {
+      const hlId = l.grabbing ?? candId;
+      const tgt = hlId != null ? hot.players.get(hlId) : undefined;
+      ringRef.current.visible = !!tgt;
+      if (tgt) ringRef.current.position.set(tgt.x, tgt.y + 0.03, tgt.z);
+    }
+
+    // ── Camera rig(third/first 双模式,0.25s 平滑过渡)──
     const cam = hot.camera;
     const headY = l.y + 0.8; // 团子矮墩墩,取景点跟着放低
     let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
@@ -222,18 +336,56 @@ export default function LocalPlayer() {
     }
     const floorAtCam = floorHeightAt(layout, cx, cz);
     const clampedCy = Math.max(cy, floorAtCam + 0.35);
+    // 第一人称眼位:团子眼位 l.y+0.36,随被抓/跳跃自然升降;
+    // 「减少镜头运动」开着且被抓时,高度 lerp k 减半,进一步钳制升降速率
+    const reduceMotion = useSettings.getState().reduceMotion;
+    const eyeK = Math.min(1, dt * (reduceMotion && l.grabbedBy != null ? 6 : 12));
+    eyeY.current += (l.y + 0.36 - eyeY.current) * eyeK;
+    // V 切换的 0.25s 平滑过渡:线性推进 blend,位置/注视点线性混合
+    const bTgt = cam.mode === 'first' ? 1 : 0;
+    const db = bTgt - fpBlend.current;
+    if (db !== 0) fpBlend.current += Math.sign(db) * Math.min(Math.abs(db), dt / 0.25);
+    const fb = fpBlend.current;
+    // 第一人称朝向:yaw/pitch 仍由现有「按住拖动」的鼠标控制(契约允许保持
+    // 拖动;指针直控需 pointer lock,本轮不改交互方式,注释说明)。
+    // roll 恒 0:lookAt 使用默认 up=+Y。
+    const lfx = -Math.sin(cam.yaw) * Math.cos(cam.pitch);
+    const lfy = -Math.sin(cam.pitch);
+    const lfz = -Math.cos(cam.yaw) * Math.cos(cam.pitch);
+    const px = cx * (1 - fb) + l.x * fb;
+    const py = clampedCy * (1 - fb) + eyeY.current * fb;
+    const pz = cz * (1 - fb) + l.z * fb;
     const kPos = 1 - Math.exp(-dt * 14);
-    camera.position.x += (cx - camera.position.x) * kPos;
-    camera.position.y += (clampedCy - camera.position.y) * kPos;
-    camera.position.z += (cz - camera.position.z) * kPos;
-    camera.lookAt(l.x, headY - 0.22, l.z);
+    camera.position.x += (px - camera.position.x) * kPos;
+    camera.position.y += (py - camera.position.y) * kPos;
+    camera.position.z += (pz - camera.position.z) * kPos;
+    camera.lookAt(
+      l.x * (1 - fb) + (l.x + lfx) * fb,
+      (headY - 0.22) * (1 - fb) + (eyeY.current + lfy) * fb,
+      l.z * (1 - fb) + (l.z + lfz) * fb
+    );
 
     // ── Avatar visuals ──
     if (groupRef.current) {
-      groupRef.current.position.set(l.x, l.y, l.z);
-      groupRef.current.rotation.y = l.ry;
-      const camDist = camera.position.distanceTo(groupRef.current.position);
-      groupRef.current.visible = camDist > 1.1;
+      const g = groupRef.current;
+      g.position.set(l.x, l.y, l.z);
+      g.rotation.y = l.ry;
+      // 被抓表现:按抓取点侧倾(叠加在 animator 的 bodyRx/Rz 之上,走外层
+      // group 通道互不干扰);悬空(高于地面 0.25)时轻微竖向拉伸 1.05
+      let tRx = 0, tRz = 0, tSy = 1;
+      if (l.grabbedBy != null && l.grabPointLocal) {
+        tRz = THREE.MathUtils.clamp(l.grabPointLocal[0] * 1.15, -0.5, 0.5);
+        tRx = THREE.MathUtils.clamp(-l.grabPointLocal[2] * 1.15, -0.5, 0.5);
+        if (l.y > floorHeightAt(layout, l.x, l.z) + 0.25) tSy = 1.05;
+      }
+      const kt = Math.min(1, dt * 8);
+      g.rotation.x += (tRx - g.rotation.x) * kt;
+      g.rotation.z += (tRz - g.rotation.z) * kt;
+      const sy = g.scale.y + (tSy - g.scale.y) * kt;
+      g.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
+      const camDist = camera.position.distanceTo(g.position);
+      // 第一人称隐藏自身模型(过渡近半即隐,避免穿模)
+      g.visible = fb < 0.5 && camDist > 1.1;
     }
     avatarRef.current?.setPose(l.anim, Math.hypot(vel.current.x, vel.current.z), dt, state.clock.elapsedTime);
     avatarRef.current?.setHeld(l.held);
@@ -241,6 +393,23 @@ export default function LocalPlayer() {
 
     // ── Network ──
     connection.sendInput();
+    // 抓取中:随 input 同节流(15Hz)发 grab move,把持点由视角自然带出:
+    // target = 自身位置 + 前向*1.6 + up*(pitch<0 ? -pitch*1.8 : -pitch*0.6),
+    // 再夹水平距 [HOLD_MIN, HOLD_MAX]、高度 [0.2, y+LIFT_MAX]
+    if (l.grabbing != null && connection.connected) {
+      const nowMs = performance.now();
+      if (nowMs - lastGrabMove.current >= 1000 / INPUT_RATE) {
+        lastGrabMove.current = nowMs;
+        const ffx = -Math.sin(cam.yaw), ffz = -Math.cos(cam.yaw);
+        const hd = Math.min(HOLD_MAX, Math.max(HOLD_MIN, 1.6));
+        const rawY = l.y + (cam.pitch < 0 ? -cam.pitch * 1.8 : -cam.pitch * 0.6);
+        const ty = Math.min(l.y + LIFT_MAX, Math.max(0.2, rawY));
+        connection.send('grab', {
+          op: 'move',
+          target: [r3(l.x + ffx * hd), r3(ty), r3(l.z + ffz * hd)],
+        });
+      }
+    }
 
     // ── Interaction scan ──
     scanInteractions(targets, l.x, l.z, l.ry);
@@ -281,15 +450,32 @@ export default function LocalPlayer() {
       consider({ id: 'ball', kind: 'ball', x: hot.ball.x, y: 0.3, z: hot.ball.z, ry: 0, label: '踢一脚沙滩球' });
     }
     currentTarget.current = best;
-    ui.setPrompt(best ? { label: labelFor(best), key: 'E' } : null);
+    if (best) {
+      ui.setPrompt({ label: labelFor(best), key: 'E' });
+    } else if (grabCandidate.current != null) {
+      // 没有 E 互动目标时,提示行显示抓取候选(准星高亮的那只团子)
+      const ge = hot.players.get(grabCandidate.current);
+      ui.setPrompt(ge ? { label: `长按抓住 ${ge.profile.username}(松手即放)`, key: 'G' } : null);
+    } else {
+      ui.setPrompt(null);
+    }
   };
 
   if (!self) return null;
   return (
-    <group ref={groupRef}>
-      <Avatar ref={avatarRef} config={self.avatar} name={self.username} />
-      {screenOn && <ScreenBillboard sessionId={hot.selfId} isLocal />}
-    </group>
+    <>
+      <group ref={groupRef}>
+        <Avatar ref={avatarRef} config={self.avatar} name={self.username} />
+        {screenOn && <ScreenBillboard sessionId={hot.selfId} isLocal />}
+      </group>
+      {/* 抓取目标准星高亮:候选/抓取中团子脚下的小圈 */}
+      <group ref={ringRef} visible={false}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.5, 0.58, 32]} />
+          <meshBasicMaterial color="#ffd166" transparent opacity={0.8} depthWrite={false} />
+        </mesh>
+      </group>
+    </>
   );
 }
 

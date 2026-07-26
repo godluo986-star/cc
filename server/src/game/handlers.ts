@@ -5,7 +5,8 @@ import type { Space, TttInternal, LoInternal } from './space';
 import {
   MAX_VALID_SPEED, clampToBounds, resolveCollisions, floorHeightAt, PLAYER_RADIUS,
   WHITEBOARD_MAX_STROKES, BOARD_MAX_POSTS, ITEMS_BY_ID, FURNITURE_BY_TYPE, TRACK_IDS,
-  dist2d, isRoomSpace, SPACE, unpackState, Anim, packState,
+  dist2d, dist3d, isRoomSpace, SPACE, unpackState, Anim, packState, clamp,
+  GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW,
 } from '@nexuspark/shared';
 import type { C2SPayload, Stroke, ChatMsg } from '@nexuspark/shared';
 import {
@@ -87,6 +88,16 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const safeAnim = anim >= 0 && anim <= 9 ? anim : Anim.Idle;
     s.st = packState(s.seatId ? Anim.Sit : safeAnim, speaking, held);
 
+    // 被抓中:输入不再驱动位移,只化成挣扎方向(tick 里作挣扎力用)
+    if (s.grabbedBy !== null) {
+      const ex = d.p[0] - s.x, ez = d.p[2] - s.z;
+      const en = Math.hypot(ex, ez);
+      s.escapeDir = en > 0.05 ? [ex / en, 0, ez / en] : [0, 0, 0];
+      return;
+    }
+    // 松手后的抛落阶段:位置由服务器模拟,落地前忽略输入位移
+    if (s.grabAirborne) return;
+
     if (s.seatId) {
       const seat = sp.seats.get(s.seatId);
       if (seat) { s.x = seat.x; s.y = seat.y; s.z = seat.z; }
@@ -95,8 +106,10 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
 
     let [nx, ny, nz] = d.p;
     // Anti-teleport: cap distance travelled since last accepted input
+    // (拖着人时速度上限乘 GRABBER_SLOW,校验容差同步调)
+    const slow = s.grabbing !== null ? GRABBER_SLOW : 1;
     const travelled = dist2d(s.x, s.z, nx, nz);
-    if (travelled > MAX_VALID_SPEED * dt + 0.6) {
+    if (travelled > (MAX_VALID_SPEED * dt + 0.6) * slow) {
       send(s, 'correction', { p: [s.x, s.y, s.z] });
       return;
     }
@@ -676,6 +689,66 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     if (!s.buckets.interact.take()) return;
     const sp = space(world, s);
     if (sp) sp.kickBall(s, d.dirX, d.dirZ);
+  },
+
+  /** 抓取:按住即抓(start)、拖动/举高(move)、松手即放(end)。服务器权威。 */
+  grab(world, s, d: C2SPayload<'grab'>) {
+    const sp = space(world, s);
+    if (!sp) return;
+    switch (d.op) {
+      case 'start': {
+        if (!s.buckets.interact.take()) return;
+        if (s.grabbing !== null) { toast(s, 'warn', '你手上已经抓着一位团子啦。'); return; }
+        if (s.grabbedBy !== null || s.grabAirborne) return; // 自己被抓/正抛落中不能抓人
+        if (d.targetId === undefined || d.targetId === s.id || d.targetId < 0) return; // 非自己、非 NPC(NPC id 为负)
+        const t = world.sessionsById.get(d.targetId);
+        if (!t || t.closed || t.spaceKey !== s.spaceKey) { toast(s, 'warn', '那位团子不在这里。'); return; }
+        if (t.noGrab) { toast(s, 'warn', '对方开启了免抓保护。'); return; }
+        if (t.grabbedBy !== null) { toast(s, 'warn', 'TA 已经被别的团子抓住啦。'); return; }
+        if (t.grabbing !== null) { toast(s, 'warn', 'TA 正抓着别人,拉不动。'); return; }
+        if (dist3d(s.x, s.y, s.z, t.x, t.y, t.z) > GRAB_RANGE) { toast(s, 'warn', '距离太远,够不着。'); return; }
+        if (s.seatId) world.releaseSeat(s, sp);
+        if (t.seatId) world.releaseSeat(t, sp);
+        const p = d.point ?? [0, 0.4, 0];
+        const pl: [number, number, number] = [
+          clamp(p[0], -0.6, 0.6), clamp(p[1], -0.6, 0.6), clamp(p[2], -0.6, 0.6),
+        ];
+        s.grabbing = t.id;
+        s.grabPointLocal = pl;
+        s.grabTargetWorld = [t.x, t.y, t.z];
+        t.grabbedBy = s.id;
+        t.grabVel = [0, 0, 0];
+        t.escapeAccum = 0;
+        t.escapeDir = [0, 0, 0];
+        t.grabAirborne = false;
+        sp.broadcast('grab_state', { grabberId: s.id, targetId: t.id, pointLocal: pl, phase: 'held' });
+        toast(s, 'info', `你抓住了 ${t.user.username}!松手就会放下。`);
+        toast(t, 'info', `${s.user.username} 把你抓起来了!朝任意方向移动可以挣扎挣脱。`);
+        return;
+      }
+      case 'move': {
+        if (!s.buckets.input.take()) return;
+        if (s.grabbing === null || !d.target) return;
+        let [tx, ty, tz] = d.target;
+        // 硬约束:与抓取者距离夹在 [HOLD_MIN, HOLD_MAX];超界 clamp,不拒绝
+        const dx = tx - s.x, dy = ty - s.y, dz = tz - s.z;
+        const dist = Math.hypot(dx, dy, dz) || 1;
+        const cd = clamp(dist, HOLD_MIN, HOLD_MAX);
+        tx = s.x + (dx / dist) * cd;
+        ty = s.y + (dy / dist) * cd;
+        tz = s.z + (dz / dist) * cd;
+        // y 夹在 [地面+0.2, 抓取者y+LIFT_MAX]
+        const floor = floorHeightAt(sp.layout, tx, tz);
+        ty = clamp(ty, floor + 0.2, s.y + LIFT_MAX);
+        s.grabTargetWorld = [tx, ty, tz];
+        return;
+      }
+      case 'end': {
+        if (s.grabbing === null) return;
+        world.releaseGrab(s, 'released'); // 目标保留当前 grabVel,自然抛落
+        return;
+      }
+    }
   },
 
   buy(world, s, d: C2SPayload<'buy'>) {

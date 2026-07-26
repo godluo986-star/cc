@@ -288,6 +288,8 @@ interface SettingsStore {
   voiceVolume: number;
   mediaVolume: number;
   invertY: boolean;
+  /** 减少镜头运动:被抓时进一步钳制相机高度变化速率(lerp k 减半)。 */
+  reduceMotion: boolean;
   set: (p: Partial<SettingsStore>) => void;
   applyQuality: (q: Quality) => void;
 }
@@ -310,6 +312,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   voiceVolume: 1.0,
   mediaVolume: 0.9,
   invertY: false,
+  reduceMotion: false,
   ...savedSettings,
   set: (p) => {
     set(p);

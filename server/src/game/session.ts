@@ -20,6 +20,25 @@ export interface Session {
   alive: boolean;
   closed: boolean;
   lastInputAt: number;
+  // ── 抓取(第一阶段:单人抓单团子)────────────────────────────────────────
+  /** 正被哪个会话抓着(被抓者视角);null = 自由身。 */
+  grabbedBy: number | null;
+  /** 正抓着哪个会话(抓取者视角)。 */
+  grabbing: number | null;
+  /** 目标身体局部抓取点(|分量|≤0.6),影响客户端倾斜表现。 */
+  grabPointLocal: [number, number, number] | null;
+  /** 抓取者期望的把持点世界坐标(move 更新,tick 里作弹簧目标)。 */
+  grabTargetWorld: [number, number, number] | null;
+  /** 被抓/抛落模拟速度。 */
+  grabVel: [number, number, number];
+  /** 挣扎积累秒数;达到 ESCAPE_BREAK 即挣脱。 */
+  escapeAccum: number;
+  /** 被抓期间输入化成的挣扎方向(单位向量;零向量 = 不挣扎)。 */
+  escapeDir: [number, number, number];
+  /** 松手/挣脱后的自由抛落阶段(落地即恢复正常输入位移)。 */
+  grabAirborne: boolean;
+  /** 免抓保护(后续设置项;默认 false)。 */
+  noGrab: boolean;
   buckets: {
     input: TokenBucket;
     chat: TokenBucket;
@@ -48,6 +67,15 @@ export function createSession(ws: WebSocket, user: AuthUser): Session {
     alive: true,
     closed: false,
     lastInputAt: Date.now(),
+    grabbedBy: null,
+    grabbing: null,
+    grabPointLocal: null,
+    grabTargetWorld: null,
+    grabVel: [0, 0, 0],
+    escapeAccum: 0,
+    escapeDir: [0, 0, 0],
+    grabAirborne: false,
+    noGrab: false,
     buckets: {
       input: new TokenBucket(30, 60),
       chat: new TokenBucket(0.8, 4),
