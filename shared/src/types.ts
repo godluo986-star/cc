@@ -32,7 +32,7 @@ export type EntitySnap = [number, number, number, number, number, number];
 export type ObjSnap = [string, number, number, number];
 
 // ── Media ───────────────────────────────────────────────────────────────────
-export type MediaKind = 'video' | 'youtube';
+export type MediaKind = 'video' | 'youtube' | 'site';
 export interface MediaState {
   url: string | null;
   kind: MediaKind | null;

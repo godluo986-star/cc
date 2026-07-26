@@ -185,6 +185,17 @@ describe('media sync', () => {
     expect(String(lastOf(a.ws, 'toast')?.d.text)).toMatch(/unsupported/i);
   });
 
+  it('classifies plain websites as embeddable sites', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    world.join(a.session, SPACE.PLAZA);
+    a.session.x = 30; a.session.z = -17.4;
+    handlers.switch_space(world, a.session, { target: SPACE.CINEMA });
+    const cinema = world.spaces.get(SPACE.CINEMA)!;
+    handlers.media_set(world, a.session, { url: 'https://en.wikipedia.org/wiki/Dango' });
+    expect(cinema.media!.kind).toBe('site');
+  });
+
   it('room media control respects owner policy', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');

@@ -42,7 +42,8 @@ function broadcastMedia(sp: Space): void {
   sp.broadcast('media_state', sp.media);
 }
 
-function classifyMediaUrl(raw: string): { kind: 'video' | 'youtube'; url: string } | null {
+const VIDEO_FILE_RE = /\.(mp4|webm|ogv|ogg|mov|m3u8)$/i;
+function classifyMediaUrl(raw: string): { kind: 'video' | 'youtube' | 'site'; url: string } | null {
   let u: URL;
   try { u = new URL(raw); } catch { return null; }
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
@@ -52,7 +53,10 @@ function classifyMediaUrl(raw: string): { kind: 'video' | 'youtube'; url: string
     if (!id) return null;
     return { kind: 'youtube', url: `https://www.youtube.com/watch?v=${id}` };
   }
-  return { kind: 'video', url: u.toString() };
+  if (VIDEO_FILE_RE.test(u.pathname)) return { kind: 'video', url: u.toString() };
+  // Anything else is embedded as a website (legal iframe embedding; sites
+  // that disallow framing will refuse to render and the panel explains it).
+  return { kind: 'site', url: u.toString() };
 }
 function extractYouTubeId(u: URL): string | null {
   const ID = /^[A-Za-z0-9_-]{8,15}$/;

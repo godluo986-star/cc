@@ -35,19 +35,21 @@ export class AuthError extends Error {
   constructor(public code: string, message: string) { super(message); }
 }
 
+// Dango avatars: shirt = body color, skin = blush tint, pants = scarf,
+// shoes = feet, hair = sprout color (hairStyle 0 curl / 1 leaf / 2 none).
 const DEFAULT_AVATAR: AvatarConfig = {
-  skin: '#e0ac69', hair: '#3b2a1d', shirt: '#4f7fbf', pants: '#33384a',
-  shoes: '#23252b', hat: 0, hatColor: '#c0392b', glasses: false, hairStyle: 0,
+  skin: '#f2a5b5', hair: '#5da55f', shirt: '#f5e6d3', pants: '#c05555',
+  shoes: '#8a6f5f', hat: 0, hatColor: '#c0392b', glasses: false, hairStyle: 0,
 };
 
 function randomAvatar(): AvatarConfig {
   const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
   return {
-    skin: pick(['#f5d0a9', '#e0ac69', '#c68863', '#8d5524', '#f8e0c0']),
-    hair: pick(['#2c1b10', '#4a3220', '#8c5a2b', '#b5651d', '#1f1f1f', '#7a3b8f', '#b03a48']),
-    shirt: pick(['#4f7fbf', '#bf4f6f', '#3f9f6f', '#bf8f3f', '#7f5fbf', '#3fa9bf']),
-    pants: pick(['#33384a', '#4a3333', '#2f4a33', '#3d3d3d']),
-    shoes: pick(['#23252b', '#5a3a22', '#7a7a7a']),
+    skin: pick(['#f2a5b5', '#f5b8c4', '#e88ba0', '#f2c4cd']),
+    hair: pick(['#5da55f', '#3f7d44', '#7fbf6f', '#d4a017', '#b03a48']),
+    shirt: pick(['#f5e6d3', '#f2c4cd', '#c4d9f2', '#c8ecc9', '#f5e28a', '#e0c4f2', '#f5c09a', '#ffffff']),
+    pants: pick(['#c05555', '#3e5f8a', '#3f7d44', '#8e44ad', '#d4a017']),
+    shoes: pick(['#8a6f5f', '#5a5a6a', '#a08a7a']),
     hat: Math.random() < 0.35 ? Math.floor(Math.random() * 3) + 1 : 0,
     hatColor: pick(['#c0392b', '#2c3e50', '#8e44ad', '#d4a017']),
     glasses: Math.random() < 0.25,

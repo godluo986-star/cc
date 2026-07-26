@@ -64,8 +64,10 @@ export interface SpaceLayout {
   hasBall?: boolean;
 }
 
-const npcAvatar = (skin: string, hair: string, shirt: string, pants: string, hat = 0, hatColor = '#333333', hairStyle = 0): AvatarConfig => ({
-  skin, hair, shirt, pants, shoes: '#2b2b2b', hat, hatColor, glasses: false, hairStyle,
+// Dango NPCs: blush = blush tint, sprout = top sprout, body = body color,
+// scarf = scarf color (see client Avatar.tsx for the field mapping).
+const npcAvatar = (blush: string, sprout: string, body: string, scarf: string, hat = 0, hatColor = '#333333', hairStyle = 0): AvatarConfig => ({
+  skin: blush, hair: sprout, shirt: body, pants: scarf, shoes: '#8a7a6f', hat, hatColor, glasses: false, hairStyle,
 });
 
 // ── Layout builder helper ───────────────────────────────────────────────────
@@ -214,12 +216,12 @@ function buildPlaza(): SpaceLayout {
   const npcs: NpcDef[] = [
     {
       id: -1, name: 'Nova', dialogueId: 'greeter', speed: 1.1, pause: 6,
-      avatar: npcAvatar('#e8b98c', '#5a3b8c', '#8c5ae8', '#2f2f3d', 1, '#5a3b8c', 1),
+      avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#c9b3f0', '#5a3b8c', 1, '#5a3b8c', 1),
       waypoints: [[3, 13], [-4, 15], [-2, 9]],
     },
     {
       id: -2, name: 'Milo', dialogueId: 'walker', speed: 1.5, pause: 3,
-      avatar: npcAvatar('#c68863', '#2c2c2c', '#3d6b4f', '#4a4a55', 0, '#333333', 0),
+      avatar: npcAvatar('#f5b8c4', '#3f7d44', '#c8ecc9', '#4a4a55', 0, '#333333', 0),
       waypoints: [[10, 8], [22, 18], [16, 24], [4, 30], [-12, 32], [-20, 20], [-10, 10]],
     },
   ];
@@ -276,7 +278,7 @@ function buildCafe(): SpaceLayout {
 
   const npcs: NpcDef[] = [{
     id: -3, name: 'Bea', dialogueId: 'barista', speed: 0.8, pause: 4,
-    avatar: npcAvatar('#f0c8a0', '#8c3b24', '#e8e4da', '#3d3d3d', 2, '#7a2e1f', 1),
+    avatar: npcAvatar('#e88ba0', '#8c3b24', '#f5e6d3', '#7a2e1f', 2, '#7a2e1f', 1),
     waypoints: [[-1.6, -5.3], [1.6, -5.3]],
   }];
 
@@ -396,7 +398,7 @@ function buildShop(): SpaceLayout {
 
   const npcs: NpcDef[] = [{
     id: -4, name: 'Zed', dialogueId: 'shopkeeper', speed: 0.7, pause: 5,
-    avatar: npcAvatar('#9c6f4e', '#111111', '#c9a227', '#33383f', 0, '#333333', 2),
+    avatar: npcAvatar('#f2a5b5', '#111111', '#f5e28a', '#33383f', 0, '#333333', 2),
     waypoints: [[-4.4, 4.9], [-3.2, 4.9]],
   }];
 
