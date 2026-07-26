@@ -3,14 +3,15 @@
  *   npm run build && npm start            # 终端 1
  *   npm i --no-save playwright            # 一次性;不进入项目依赖
  *   node scripts/smoke.mjs                # 终端 2
- * 两名玩家进入世界:聊天互通 → 咖啡馆(麻将开局/象棋走子/旁观脱敏)→
- * 团子塔电梯 → 自己的房间 → 编辑器摆家具 → 电视放网页。任一检查失败则退出码非 0。
+ * 两名玩家进入世界(黄昏街区,出生点=站前广场):聊天互通 → 咖啡馆
+ * (麻将开局/象棋走子/旁观脱敏)→ 过高架天桥 → 团子塔电梯 → 自己的房间 →
+ * 编辑器摆家具 → 电视放网页。任一检查失败则退出码非 0。
  * 可设 PW_CHROMIUM 指向系统 Chromium,BASE_URL 指向其他服务器。
  */
 import { chromium } from 'playwright';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const OUT = process.env.OUT_DIR ?? '.';
-// 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从广场出生点开始
+// 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从街区出生点开始
 const RUN = `${Date.now() % 1000000}`;
 const errors = [];
 let failures = 0;
@@ -122,14 +123,12 @@ check('跨端聊天同步', await p1.evaluate(() =>
 ));
 await p1.screenshot({ path: `${OUT}/smoke-plaza.png` });
 
-// ── 两人进咖啡馆(沿门前铺装带正南直进,避免蹭到咖啡馆东北墙角)──
+// ── 两人进咖啡馆(南街西侧,门在 (-12.6, 30);出生点北上即到)──
 for (const p of [p1, p2]) {
-  await walkTo(p, -12, 4);
-  await walkTo(p, -20, -2);
-  await walkTo(p, -26, -8);
-  await walkTo(p, -30, -12.5, 20000);
-  await walkTo(p, -29.9, -15.2, 15000);
-  await interactWhenPrompt(p, '咖啡馆', -30, -15.5);
+  await walkTo(p, 0, 40);
+  await walkTo(p, -6, 34);
+  await walkTo(p, -10.6, 30.4, 20000);
+  await interactWhenPrompt(p, '咖啡馆', -11.4, 30);
 }
 check('两人都进入咖啡馆', (await state(p1)).space === 'cafe' && (await state(p2)).space === 'cafe');
 
@@ -174,15 +173,20 @@ await p1.keyboard.press('Escape');
 await p2.keyboard.press('Escape');
 await p2.close();
 
-// ── 回广场 → 团子塔 → 电梯 → 自己的房间 ──
+// ── 回街区 → 穿路口、上高架天桥(东侧坡道)→ 北街团子塔 → 电梯 → 房间 ──
 await walkTo(p1, 0, 4.6, 20000);
 await interactWhenPrompt(p1, '返回', 0, 5.0);
-check('回到广场', (await state(p1)).space === 'plaza');
-await walkTo(p1, -14, -8);
-await walkTo(p1, -4, -22);
-await walkTo(p1, 0, -31);
-await walkTo(p1, 0, -35.5, 15000);
-await interactWhenPrompt(p1, '团子塔', 0, -36.0);
+check('回到街区', (await state(p1)).space === 'plaza');
+await walkTo(p1, -4, 20);
+await walkTo(p1, 2, 4);
+await walkTo(p1, 9.5, -6);
+await walkTo(p1, 9.5, -16, 20000);  // 东南坡道底
+await walkTo(p1, 9.5, -26, 20000);  // 上坡
+await walkTo(p1, 9.5, -33, 20000);  // 桥面(y≈5.2,桥下路面被围栏封住)
+await walkTo(p1, 9.5, -44, 20000);  // 东北坡道下行
+await walkTo(p1, 9.5, -52, 20000);
+await walkTo(p1, 11.2, -58, 15000);
+await interactWhenPrompt(p1, '团子塔', 11.6, -58);
 check('进入大堂', (await state(p1)).space === 'lobby');
 await walkTo(p1, 0, -4.2, 25000);
 await interactWhenPrompt(p1, '电梯', 0, -4.6);

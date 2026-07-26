@@ -15,7 +15,7 @@
  */
 import { chromium } from 'playwright';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
-// 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从广场出生点开始
+// 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从街区出生点开始
 const RUN = `${Date.now() % 1000000}`;
 const errors = [];
 let failures = 0;
@@ -132,15 +132,15 @@ const posOf = (s) => mediaPositionAt(s.media, s.now + s.offset);
 const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy'].map((k) => m[k]));
 const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]);
 
-// ── 两人从广场出生点走进电影院(东路直达,咖啡馆路径的东侧镜像)──
+// ── 两人从站前广场出生点北上穿路口,进东街北侧的电影院(门在 (30, -12.6))──
 for (const p of [p1, p2]) {
-  await walkTo(p, 3, 7);        // 绕开出生点旁的长椅/留言板/路灯
-  await walkTo(p, 12, 4);
-  await walkTo(p, 20, -2);
-  await walkTo(p, 26, -8);
-  await walkTo(p, 30, -12.5, 20000);
-  await walkTo(p, 29.9, -16.2, 15000);
-  await interactWhenPrompt(p, '电影院', 30, -16.5);
+  await walkTo(p, 2, 40);       // 绕开出生点旁的长椅/留言板
+  await walkTo(p, 0, 20);
+  await walkTo(p, 4, 2);        // 穿过大十字路口
+  await walkTo(p, 16, -9.5);    // 东街北侧人行道
+  await walkTo(p, 26, -9.5, 20000);
+  await walkTo(p, 29.9, -11.4, 15000);
+  await interactWhenPrompt(p, '电影院', 30, -11.8);
 }
 check('两人都进入电影院', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
 

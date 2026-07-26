@@ -11,7 +11,9 @@ export const INTERP_DELAY_MS = 130;
 
 // ── Movement tuning ──────────────────────────────────────────────────────────
 export const WALK_SPEED = 3.1; // m/s
-export const RUN_SPEED = 6.4; // m/s
+/** 街区尺度加大后的奔跑速度(总纲 §4:街道 7m/s)。服务器防瞬移校验
+ *  (handlers.input 的 MAX_VALID_SPEED)高于此值,不会误杀正常奔跑。 */
+export const RUN_SPEED = 7; // m/s
 export const JUMP_VELOCITY = 5.4; // m/s
 export const GRAVITY = 15.5; // m/s²
 export const PLAYER_RADIUS = 0.34;
@@ -100,6 +102,8 @@ export const SPACE = {
   ARCADE: 'arcade',
   SHOP: 'shop',
   LOBBY: 'lobby',
+  NETCAFE: 'netcafe',
+  GAMEROOM: 'gameroom',
 } as const;
 export type PublicSpaceKey = (typeof SPACE)[keyof typeof SPACE];
 export const PUBLIC_SPACES: PublicSpaceKey[] = Object.values(SPACE);

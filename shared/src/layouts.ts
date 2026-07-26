@@ -2,16 +2,21 @@
  * Static world layouts, shared verbatim by server (interaction validation,
  * collision, NPC routes) and client (rendering). Personal rooms are dynamic
  * and stored in the database; only their shell is defined here.
+ *
+ * 户外图 = 「黄昏街区」(docs/art-direction.md §4):布局数据全部来自
+ * shared/src/cityplan.ts,本文件只负责把它翻译成碰撞/交互/道具/高度区。
  */
 import type { Bounds, Collider } from './math';
-import { seededRandom } from './math';
 import type { AvatarConfig } from './types';
 import { SPACE } from './constants';
+import {
+  BUILDINGS, CITY_BOUNDS, OVERPASS, STATION, VENUES,
+} from './cityplan';
 
 export type InteractKind =
   | 'seat' | 'door' | 'switch' | 'board' | 'whiteboard' | 'screen' | 'jukebox'
   | 'ttt' | 'lightsout' | 'vending' | 'kiosk' | 'bookshelf' | 'elevator'
-  | 'xiangqi' | 'mahjong';
+  | 'xiangqi' | 'mahjong' | 'riichi';
 
 export interface Interactable {
   id: string;
@@ -42,12 +47,12 @@ export interface NpcDef {
   dialogueId: string;
 }
 
-export interface HeightZone {
-  minX: number; maxX: number; minZ: number; maxZ: number;
-  /** Returns floor height inside the zone. */
-  kind: 'bridgeZ';
-  cx: number; half: number; peak: number;
-}
+interface HeightZoneBase { minX: number; maxX: number; minZ: number; maxZ: number }
+/** 高度区:bridgeZ = 抛物线小桥(沿 z);ramp = 线性坡道;deck = 平台。 */
+export type HeightZone =
+  | (HeightZoneBase & { kind: 'bridgeZ'; cx: number; half: number; peak: number })
+  | (HeightZoneBase & { kind: 'ramp'; dir: 'n' | 's' | 'e' | 'w'; y: number })
+  | (HeightZoneBase & { kind: 'deck'; y: number });
 
 export interface SpaceLayout {
   key: string;
@@ -87,9 +92,9 @@ class B {
   inter(id: string, kind: InteractKind, x: number, y: number, z: number, ry: number, label: string, data?: Record<string, unknown>) {
     this.interactables.push({ id, kind, pos: [x, y, z], ry, label, data }); return this;
   }
-  /** Park bench: prop + 2 seats + collider. Bench faces +Z at ry=0. */
-  bench(id: string, x: number, z: number, ry: number) {
-    this.prop('bench', x, 0, z, ry);
+  /** Street bench: prop + 2 seats + collider. Bench faces +Z at ry=0. */
+  bench(id: string, x: number, z: number, ry: number, type = 'c_bench') {
+    this.prop(type, x, 0, z, ry);
     const cos = Math.cos(ry), sin = Math.sin(ry);
     for (let i = 0; i < 2; i++) {
       const lx = i === 0 ? -0.55 : 0.55;
@@ -112,124 +117,180 @@ class B {
     }
     return this;
   }
-  lamp(x: number, z: number) { this.prop('street_lamp', x, 0, z); this.circle(x, z, 0.22); return this; }
-  tree(x: number, z: number, variant: number, scale = 1) {
-    this.prop('tree', x, 0, z, 0, { variant, scale });
-    this.circle(x, z, 0.4 * scale);
-    return this;
-  }
+  /** 街灯:视觉 prop + 小圆碰撞(渲染归 P3)。 */
+  lamp(x: number, z: number) { this.prop('c_lamp', x, 0, z); this.circle(x, z, 0.22); return this; }
 }
 
-// ═════════════════════════════ PLAZA ════════════════════════════════════════
-function buildPlaza(): SpaceLayout {
+// ═════════════════════════ 黄昏街区(户外) ═════════════════════════════════
+function buildCity(): SpaceLayout {
   const b = new B();
-  const bounds: Bounds = { minX: -60, maxX: 60, minZ: -60, maxZ: 60 };
+  const bounds: Bounds = { ...CITY_BOUNDS };
 
-  // Fountain (center)
-  b.circle(0, 0, 4.9);
-  b.prop('fountain', 0, 0, 0);
+  // ── 建筑碰撞(非剪影全部实心;剪影楼在雾里,不可达也不必碰撞)──
+  for (const bd of BUILDINGS) {
+    if (bd.style === 'silhouette') continue;
+    b.box(bd.x, bd.z, bd.w, bd.d);
+  }
 
-  // Buildings: [type, cx, cz, w, d, doorX, doorZ, doorRy, target]
-  const buildings: [string, number, number, number, number][] = [
-    ['bld_cafe', -30, -22, 14, 11],
-    ['bld_cinema', 30, -24, 18, 13],
-    ['bld_arcade', 36, 10, 13, 11],
-    ['bld_shop', -36, 10, 13, 11],
-    ['bld_tower', 0, -43, 16, 12],
+  // ── 场馆门(七个,全部在主街一层;门位由 cityplan.VENUES 精排)──
+  const doorTarget: Record<string, { target: string; label: string }> = {
+    cinema: { target: SPACE.CINEMA, label: '进入电影院' },
+    netcafe: { target: SPACE.NETCAFE, label: '进入网吧 NEXUS' },
+    gameroom: { target: SPACE.GAMEROOM, label: '进入雀庄·东风阁' },
+    cafe: { target: SPACE.CAFE, label: '进入咖啡馆' },
+    shop: { target: SPACE.SHOP, label: '进入便利店' },
+    arcade: { target: SPACE.ARCADE, label: '进入游戏厅' },
+    tower: { target: SPACE.LOBBY, label: '进入团子塔' },
+  };
+  for (const v of VENUES) {
+    const t = doorTarget[v.key];
+    b.inter(`d-${v.key}`, 'door', v.x, 0, v.z, v.ry, t.label, { target: t.target });
+  }
+
+  // ── 高架天桥(北街;heightZones:4 条线性坡道 + 平台)──
+  const dk = OVERPASS.deck;
+  b.heightZones.push({
+    minX: dk.x - dk.w / 2, maxX: dk.x + dk.w / 2,
+    minZ: dk.z - dk.d / 2, maxZ: dk.z + dk.d / 2, kind: 'deck', y: dk.y,
+  });
+  for (const r of OVERPASS.ramps) {
+    b.heightZones.push({
+      minX: r.x - r.w / 2, maxX: r.x + r.w / 2,
+      minZ: r.z - r.d / 2, maxZ: r.z + r.d / 2, kind: 'ramp', dir: r.dir, y: dk.y,
+    });
+  }
+  // 桥面栏杆兼「桥下路面封条」:2D 碰撞在任何高度都生效,所以同一对薄墙
+  // 既是桥上护栏,又挡住行人从地面误入桥下(桥下留给异常点 C 的阴影构图)。
+  b.box(0, -29.75, 14.4, 0.5);
+  b.box(0, -34.25, 14.4, 0.5);
+  b.prop('c_fence', 0, 0, -29.75, 0, { w: 14.4, bridge: true });
+  b.prop('c_fence', 0, 0, -34.25, 0, { w: 14.4, bridge: true });
+  // 桥墩 4 根
+  for (const [px, pz] of [[-5.6, -30.8], [5.6, -30.8], [-5.6, -33.2], [5.6, -33.2]] as const) {
+    b.circle(px, pz, 0.45);
+    b.prop('c_pier', px, 0, pz);
+  }
+
+  // ── 封闭地铁口(站前广场南缘,下沉台阶被拉闸;台阶区不可走)──
+  b.box(STATION.x, STATION.z, 7, 4.5);
+
+  // ── 站前广场家什 ──
+  b.inter('city-board', 'board', 5, 0, 58, -Math.PI / 2 - 0.4, '站前留言板', {});
+  b.box(5, 58, 0.5, 1.6);
+  b.inter('v-vend1', 'vending', -6.4, 0, 61, 0, '自动售货机·红', { items: ['soda', 'pizza'] });
+  b.box(-6.4, 61, 0.8, 0.9);
+  b.inter('v-vend2', 'vending', 36, 0, 11.5, Math.PI, '自动售货机·蓝', { items: ['soda', 'pizza'] });
+  b.box(36, 11.5, 0.8, 0.9);
+
+  // 街边长椅 ×6(站前 2 + 主街 4)
+  b.bench('sb0', 3.4, 48, Math.PI);
+  b.bench('sb1', -8.2, 50.4, Math.PI * 0.9);
+  b.bench('sb2', 20, 9.4, Math.PI);
+  b.bench('sb3', -24, 9.4, Math.PI);
+  b.bench('sb4', 48, -9.4, 0);
+  b.bench('sb5', -11.3, -55, -Math.PI / 2);
+
+  // ── 路灯(间隔 22-28m 不等距;lamp = 视觉 prop + 小圆碰撞)──
+  const lamps: Array<[number, number]> = [
+    // 站前广场
+    [14, 49.5], [-15.2, 55], [23, 64.5], [-23.5, 63.5],
+    // 南街
+    [-11.4, 44], [11.4, 47], [-11.4, 21], [11.4, 24], [-11.4, 79], [11.4, 88],
+    // 东街
+    [18, -11.6], [43, -11.5], [67, -11.4], [20, 11.6], [45, 11.6], [70, 11.5],
+    // 西街
+    [-19, -11.6], [-44, -11.5], [-68, -11.6], [-21, 11.6], [-46, 11.5], [-70, 11.4],
+    // 北街(天桥以北)
+    [-11.4, -64], [11.4, -70], [11.4, -92], [-11.4, -96],
   ];
-  for (const [type, cx, cz, w, d] of buildings) {
-    b.prop(type, cx, 0, cz);
-    b.box(cx, cz, w, d);
-  }
-  // Entrance doors (positioned on the plaza-facing wall, just outside collider)
-  b.inter('d-cafe', 'door', -30, 0, -16.4, Math.PI, '进入咖啡馆', { target: SPACE.CAFE });
-  b.inter('d-cinema', 'door', 30, 0, -17.4, Math.PI, '进入电影院', { target: SPACE.CINEMA });
-  b.inter('d-arcade', 'door', 29.4, 0, 10, Math.PI / 2, '进入游戏厅', { target: SPACE.ARCADE });
-  b.inter('d-shop', 'door', -29.4, 0, 10, -Math.PI / 2, '进入商店', { target: SPACE.SHOP });
-  b.inter('d-tower', 'door', 0, 0, -36.9, Math.PI, '进入团子塔', { target: SPACE.LOBBY });
+  for (const [lx, lz] of lamps) b.lamp(lx, lz);
 
-  // Street lamps around fountain + along paths
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    b.lamp(Math.sin(a) * 9.5, Math.cos(a) * 9.5);
-  }
-  b.lamp(-18, -14); b.lamp(18, -14); b.lamp(-20, 14); b.lamp(20, 14);
-  b.lamp(-8, 30); b.lamp(8, 44); b.lamp(-26, 34); b.lamp(28, 34);
-
-  // Benches around the fountain
-  b.bench('pb0', -7.4, 0, Math.PI / 2 + Math.PI);
-  b.bench('pb1', 7.4, 0, -Math.PI / 2 + Math.PI);
-  b.bench('pb2', 0, -7.4, 0);
-  b.bench('pb3', 0, 7.4, Math.PI);
-
-  // Message board near spawn
-  b.inter('plaza-board', 'board', 5.2, 0, 9.5, -Math.PI / 2 - 0.4, '社区留言板', {});
-  b.box(5.2, 9.5, 0.5, 1.6);
-
-  // ── Park (southern half) ──
-  // Pond: capsule of two lobes with a bridge crossing at x=16 along Z.
-  b.prop('pond', 16, 0, 30);
-  b.prop('bridge', 16, 0, 30);
-  // Water colliders (two lobes, leaving the bridge deck walkable)
-  b.circle(11.5, 30, 3.8);
-  b.circle(20.5, 30, 3.8);
-  b.heightZones.push({ minX: 15, maxX: 17, minZ: 25.4, maxZ: 34.6, kind: 'bridgeZ', cx: 30, half: 4.6, peak: 0.55 });
-
-  // Picnic table
-  b.prop('picnic', -16, 0, 27);
-  b.box(-16, 27, 1.8, 1.2);
-  b.inter('picnic-s0', 'seat', -16.95, 0.45, 27, Math.PI / 2, '坐下');
-  b.inter('picnic-s1', 'seat', -15.05, 0.45, 27, -Math.PI / 2, '坐下');
-
-  // Park benches
-  b.bench('kb0', -10, 22, Math.PI * 0.82);
-  b.bench('kb1', 6, 24, Math.PI * 1.1);
-  b.bench('kb2', 24, 24, Math.PI * 1.25);
-  b.bench('kb3', -22, 38, Math.PI * 0.4);
-
-  // Flower beds
-  b.prop('flowerbed', -6, 0, 34); b.circle(-6, 34, 1.5);
-  b.prop('flowerbed', 26, 0, 40); b.circle(26, 40, 1.5);
-  b.prop('flowerbed', -30, 0, 24); b.circle(-30, 24, 1.5);
-
-  // Trees: deterministic scatter in the park + street lines
-  const rnd = seededRandom(1337);
-  let placed = 0;
-  let guard = 0;
-  while (placed < 26 && guard++ < 400) {
-    const x = -44 + rnd() * 88;
-    const z = 18 + rnd() * 36;
-    // keep clear of pond, picnic, paths and props
-    if (Math.hypot(x - 16, z - 30) < 7.5) continue;
-    if (Math.hypot(x + 16, z - 27) < 3.5) continue;
-    if (Math.abs(x) < 3.5) continue; // main south path
-    if (b.props.some((p) => p.type === 'tree' && Math.hypot(p.pos[0] - x, p.pos[2] - z) < 4.5)) continue;
-    b.tree(x, z, placed % 3, 0.85 + rnd() * 0.5);
-    placed++;
-  }
-  // Street trees flanking north walkway
-  for (const x of [-14, -8, 8, 14]) { b.tree(x, -14, 1, 1.0); }
-  for (const x of [-46, -24, 24, 46]) { b.tree(x, -4, 0, 1.1); }
-
-  // Perimeter hedge (visual) + world edge fence colliders handled by bounds
-  b.prop('hedge_ring', 0, 0, 0);
+  // ── 道具事件组(总纲 §4.3:约每 30m 一组,禁止等距;渲染归 P3)──
+  // G1 站前储物柜 + 售货机残旧款
+  b.prop('c_locker', 24.5, 0, 60.2, -Math.PI / 2);
+  b.prop('c_locker', 24.5, 0, 61.6, -Math.PI / 2);
+  b.box(24.5, 60.9, 0.6, 3);
+  b.prop('c_vend', 24.5, 0, 63.4, -Math.PI / 2, { variant: 'red' });
+  b.box(24.5, 63.4, 0.7, 0.9);
+  b.prop('c_trash', 24.2, 0, 58.9); b.circle(24.2, 58.9, 0.35);
+  // G2 公用电话亭 + 旧海报
+  b.prop('c_phone', -22.5, 0, 60, Math.PI / 2);
+  b.box(-22.5, 60, 0.9, 0.9);
+  b.prop('c_poster', -16, 1.4, 38.9, 0);
+  // G3 施工围栏(西街北侧,一处,黄黑条)
+  b.prop('c_fence', -46, 0, -9.3, 0.2); b.box(-46, -9.3, 2.2, 0.4);
+  b.prop('c_fence', -48.5, 0, -9.6, -0.15); b.box(-48.5, -9.6, 2.2, 0.4);
+  b.prop('c_fence', -51, 0, -9.2, 0.1); b.box(-51, -9.2, 2.2, 0.4);
+  b.prop('c_trash', -49, 0, -10.6); b.circle(-49, -10.6, 0.35);
+  // G4 倒下的自行车 + 墙面海报(街机厅西侧口袋地)
+  b.prop('c_bike', 17, 0, 15.8, 1.2, { fallen: true }); b.circle(17, 15.8, 0.4);
+  b.prop('c_poster', 22.8, 1.4, 16, -Math.PI / 2);
+  b.prop('c_manhole', 14.5, 0, 13.8);
+  // G5 东南巷:垃圾袋堆 + 斜靠自行车
+  b.prop('c_trash', 31, 0, 23.95); b.circle(31, 23.95, 0.4);
+  b.prop('c_trash', 33.5, 0, 23.9); b.circle(33.5, 23.9, 0.35);
+  b.prop('c_bike', 38, 0, 33.2, 2.6); b.circle(38, 33.2, 0.35);
+  // G6 西南巷:空调外机(挂墙)+ 巷底垃圾 + 倒地自行车
+  b.prop('c_ac', -25.2, 2.2, 33, -Math.PI / 2);
+  b.prop('c_ac', -32, 2.4, 30, Math.PI / 2);
+  b.prop('c_trash', -42.8, 0, 27.5); b.circle(-42.8, 27.5, 0.4);
+  b.prop('c_trash', -43.4, 0, 28.3); b.circle(-43.4, 28.3, 0.3);
+  b.prop('c_bike', -35, 0, 38.2, -1.3, { fallen: true }); b.circle(-35, 38.2, 0.4);
+  // G7 消防栓 + 井盖
+  b.prop('c_hydrant', 8.2, 0, 16.4); b.circle(8.2, 16.4, 0.25);
+  b.prop('c_manhole', 4.6, 0, 19.6);
+  b.prop('c_manhole', -3.4, 0, -18.6);
+  // G8 电线杆 + 横跨街道的电缆(东街/西街)
+  b.prop('c_wires', 16, 0, 7.9); b.circle(16, 7.9, 0.18);
+  b.prop('c_wires', 38, 0, 8.3); b.circle(38, 8.3, 0.18);
+  b.prop('c_wires', 65, 0, 7.8); b.circle(65, 7.8, 0.18);
+  b.prop('c_wires', -17, 0, -7.9); b.circle(-17, -7.9, 0.18);
+  b.prop('c_wires', -41, 0, -8.2); b.circle(-41, -8.2, 0.18);
+  // G9 西南巷海报墙
+  b.prop('c_poster', -34.2, 1.5, 31.5, Math.PI / 2);
+  b.prop('c_poster', -34.3, 1.1, 29.4, Math.PI / 2);
+  // G10 路口红绿灯 ×4
+  b.prop('c_signal', 12.6, 0, 12.6, -Math.PI * 0.75); b.circle(12.6, 12.6, 0.2);
+  b.prop('c_signal', -12.6, 0, 12.6, Math.PI * 0.75); b.circle(-12.6, 12.6, 0.2);
+  b.prop('c_signal', 12.6, 0, -12.6, -Math.PI * 0.25); b.circle(12.6, -12.6, 0.2);
+  b.prop('c_signal', -12.6, 0, -12.6, Math.PI * 0.25); b.circle(-12.6, -12.6, 0.2);
+  // G11 站前花坛槽
+  b.prop('c_planter', -26, 0, 48); b.box(-26, 48, 0.9, 0.9);
+  b.prop('c_planter', -25.3, 0, 54); b.box(-25.3, 54, 0.9, 0.9);
+  b.prop('c_planter', -26.5, 0, 59); b.box(-26.5, 59, 0.9, 0.9);
+  // G12 团子塔门前
+  b.prop('c_bike', 10.6, 0, -61.5, 0.4); b.circle(10.6, -61.5, 0.35);
+  b.prop('c_poster', 11.9, 1.4, -63, Math.PI / 2);
+  // G13 网吧门前
+  b.prop('c_vend', -24, 0, -11.6, 0, { variant: 'blue' }); b.box(-24, -11.6, 0.7, 0.8);
+  b.prop('c_trash', -22.6, 0, -11.2); b.circle(-22.6, -11.2, 0.3);
+  // G14 影院门前引导栏(离门口通道 2m 外)
+  b.prop('c_fence', 23.5, 0, -11.3, 0.05); b.box(23.5, -11.3, 2.2, 0.35);
+  // G15 天桥下(异常点 C 附近)
+  b.prop('c_trash', -5.8, 0, -20.4); b.circle(-5.8, -20.4, 0.35);
+  b.prop('c_manhole', -2.2, 0, -24);
 
   const npcs: NpcDef[] = [
     {
-      id: -1, name: 'Nova', dialogueId: 'greeter', speed: 1.1, pause: 6,
+      id: -1, name: 'Yuki', dialogueId: 'greeter', speed: 1.1, pause: 6,
       avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#cbb8d9', '#5a3b8c', 1, '#5a3b8c', 1),
-      waypoints: [[3, 13], [-4, 15], [-2, 9]],
+      waypoints: [[7, 54], [-8, 59], [-3, 47]],
     },
     {
-      id: -2, name: 'Milo', dialogueId: 'walker', speed: 1.5, pause: 3,
+      id: -2, name: 'Kaito', dialogueId: 'walker', speed: 1.4, pause: 3,
       avatar: npcAvatar('#f5b8c4', '#3f7d44', '#b7cf8f', '#4a4a55', 0, '#333333', 0),
-      waypoints: [[10, 8], [22, 18], [16, 24], [4, 30], [-12, 32], [-20, 20], [-10, 10]],
+      waypoints: [[16, 9.4], [38, 9.5], [57, 9.3], [36, 9.6]],
+    },
+    {
+      id: -5, name: 'Rin', dialogueId: 'walker', speed: 1.2, pause: 4,
+      avatar: npcAvatar('#f2a5b5', '#2f3b5c', '#9fb3d9', '#33383f', 0, '#333333', 2),
+      waypoints: [[-17, -9.5], [-33, -9.4], [-25, -9.6]],
     },
   ];
 
   return {
-    key: SPACE.PLAZA, label: '团子广场', indoor: false, bounds,
-    spawn: [0, 0, 13, Math.PI],
+    key: SPACE.PLAZA, label: '黄昏街区', indoor: false, bounds,
+    spawn: [0, 0, 52, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs, heightZones: b.heightZones, hasBall: true,
   };
@@ -240,7 +301,7 @@ function buildCafe(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -8, maxX: 8, minZ: -6, maxZ: 6 };
 
-  b.inter('cafe-exit', 'door', 0, 0, 5.7, 0, '返回广场', { target: SPACE.PLAZA, spawn: [-30, 0, -14.6, 0] });
+  b.inter('cafe-exit', 'door', 0, 0, 5.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [-11.2, 0, 30, Math.PI / 2] });
   b.inter('cafe-lights', 'switch', 1.7, 1.2, 5.85, 0, '电灯开关', { switchId: 'cafe-lights' });
 
   // Counter along north wall
@@ -314,7 +375,7 @@ function buildCinema(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -10, maxX: 10, minZ: -9, maxZ: 9 };
 
-  b.inter('cine-exit', 'door', 0, 0, 8.7, 0, '返回广场', { target: SPACE.PLAZA, spawn: [30, 0, -15.6, 0] });
+  b.inter('cine-exit', 'door', 0, 0, 8.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [30, 0, -11.2, 0] });
   // 超大银幕:几乎占满整面前墙(视觉尺寸在客户端 registry 里定义)
   b.inter('cine-screen', 'screen', 0, 3.55, -8.4, 0, '影院银幕');
 
@@ -354,7 +415,7 @@ function buildArcade(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -7, maxX: 7, minZ: -6, maxZ: 6 };
 
-  b.inter('arc-exit', 'door', -6.7, 0, 0, Math.PI / 2, '返回广场', { target: SPACE.PLAZA, spawn: [28.2, 0, 10, Math.PI / 2] });
+  b.inter('arc-exit', 'door', -6.7, 0, 0, Math.PI / 2, '返回街区', { target: SPACE.PLAZA, spawn: [30, 0, 11.2, Math.PI] });
   b.inter('arcade-neon', 'switch', -6.85, 1.2, 1.8, Math.PI / 2, '霓虹开关', { switchId: 'arcade-neon' });
 
   // Playable machines along north wall
@@ -396,7 +457,7 @@ function buildShop(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -7, maxX: 7, minZ: -6, maxZ: 6 };
 
-  b.inter('shop-exit', 'door', 6.7, 0, 0, -Math.PI / 2, '返回广场', { target: SPACE.PLAZA, spawn: [-28.2, 0, 10, -Math.PI / 2] });
+  b.inter('shop-exit', 'door', 6.7, 0, 0, -Math.PI / 2, '返回街区', { target: SPACE.PLAZA, spawn: [-30, 0, 11.2, Math.PI] });
   b.inter('shop-lights', 'switch', 6.85, 1.2, 1.8, -Math.PI / 2, '电灯开关', { switchId: 'shop-lights' });
 
   // Furniture kiosk (center)
@@ -435,7 +496,7 @@ function buildLobby(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -8, maxX: 8, minZ: -6, maxZ: 6 };
 
-  b.inter('lobby-exit', 'door', 0, 0, 5.7, 0, '返回广场', { target: SPACE.PLAZA, spawn: [0, 0, -35.4, 0] });
+  b.inter('lobby-exit', 'door', 0, 0, 5.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [11.2, 0, -58, -Math.PI / 2] });
   b.inter('lobby-lights', 'switch', 1.7, 1.2, 5.85, 0, '电灯开关', { switchId: 'lobby-lights' });
 
   // Elevator bank (north wall): two doors + call panel
@@ -467,6 +528,90 @@ function buildLobby(): SpaceLayout {
   };
 }
 
+// ═════════════════════════ 网吧 NEXUS(新室内) ═════════════════════════════
+function buildNetcafe(): SpaceLayout {
+  const b = new B();
+  const bounds: Bounds = { minX: -8, maxX: 8, minZ: -6, maxZ: 6 };
+
+  b.inter('nc-exit', 'door', 0, 0, 5.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [-30, 0, -11.2, 0] });
+  b.inter('nc-lights', 'switch', 1.7, 1.2, 5.85, 0, '电灯开关', { switchId: 'nc-lights' });
+
+  // 墙上 6m 联赛大屏(北墙;共享画面/媒体都可投上来)
+  b.inter('nc-wall', 'screen', 0, 2.4, -5.85, 0, '联赛大屏');
+
+  // 两排各 4 个电竞位:桌上斜置大屏 prop 'nc_station',坐下面向北(桌在座位北侧)
+  const cols = [-5.4, -1.8, 1.8, 5.4];
+  cols.forEach((x, i) => {
+    b.prop('nc_station', x, 0, -3.5, 0, { row: 0, seatIdx: i });
+    b.box(x, -3.5, 1.5, 0.7);
+    b.inter(`nc-s${i}`, 'seat', x, 0.47, -2.6, Math.PI, '坐下');
+  });
+  cols.forEach((x, i) => {
+    b.prop('nc_station', x, 0, 0.9, 0, { row: 1, seatIdx: 4 + i });
+    b.box(x, 0.9, 1.5, 0.7);
+    b.inter(`nc-s${4 + i}`, 'seat', x, 0.47, 1.8, Math.PI, '坐下');
+  });
+
+  // 饮料售货机 + 前台 + 泡面堆
+  b.inter('nc-vend', 'vending', -7.4, 0, 3.4, Math.PI / 2, '饮料贩卖机', { items: ['soda'] });
+  b.box(-7.4, 3.4, 0.8, 0.9);
+  b.prop('nc_counter', 6.4, 0, 4.6, Math.PI); b.box(6.4, 4.6, 2.4, 0.9);
+  b.prop('c_trash', 7.3, 0, -5.2); b.circle(7.3, -5.2, 0.3);
+
+  return {
+    key: SPACE.NETCAFE, label: '网吧 NEXUS', indoor: true, bounds,
+    spawn: [0, 0, 4.4, Math.PI],
+    colliders: b.colliders, interactables: b.interactables, props: b.props,
+    npcs: [], heightZones: [], mediaPolicy: 'everyone',
+  };
+}
+
+// ═════════════════════════ 雀庄「东风阁」(新室内) ══════════════════════════
+function buildGameroom(): SpaceLayout {
+  const b = new B();
+  const bounds: Bounds = { minX: -7, maxX: 7, minZ: -6, maxZ: 6 };
+
+  b.inter('gr-exit', 'door', 0, 0, 5.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [11.2, 0, 32, -Math.PI / 2] });
+  b.inter('gr-lights', 'switch', 1.7, 1.2, 5.85, 0, '电灯开关', { switchId: 'gr-lights' });
+
+  // 2 张全自动日麻桌(引擎/面板归 P6;这里只出桌位数据)
+  const riichiSeats: Array<[number, number, number]> = [
+    [0, 1.15, Math.PI],      // 南
+    [1.15, 0, -Math.PI / 2], // 东
+    [0, -1.15, 0],           // 北
+    [-1.15, 0, Math.PI / 2], // 西
+  ];
+  ([['gr-rj1', -3.4, -1.6], ['gr-rj2', 3.4, -1.6]] as const).forEach(([id, tx, tz]) => {
+    b.inter(id, 'riichi', tx, 0, tz, 0, '立直麻将桌');
+    b.box(tx, tz, 1.3, 1.3);
+    riichiSeats.forEach(([ox, oz, sry], i) => {
+      b.prop('chair', tx + ox, 0, tz + oz, sry);
+      b.inter(`${id}-s${i}`, 'seat', tx + ox, 0.47, tz + oz, sry, '坐下');
+    });
+  });
+
+  // 1 张象棋桌
+  b.inter('gr-xq', 'xiangqi', 0, 0, 3.6, 0, '象棋桌');
+  b.box(0, 3.6, 1.0, 1.0);
+  for (const [sx, sry, i] of [[-1.05, Math.PI / 2, 0], [1.05, -Math.PI / 2, 1]] as const) {
+    b.prop('chair', sx, 0, 3.6, sry);
+    b.inter(`gr-xq-s${i}`, 'seat', sx, 0.47, 3.6, sry, '坐下');
+  }
+
+  // 茶水台(西)+ 点棒柜台(东北)+ 灯笼
+  b.prop('gr_tea', -6.3, 0, 3.8, Math.PI / 2); b.box(-6.3, 3.8, 0.8, 2.2);
+  b.prop('gr_counter', 6.3, 0, -4.9, -Math.PI / 2); b.box(6.3, -4.9, 1.2, 2.0);
+  b.prop('gr_lantern', -6.5, 2.3, -5.3);
+  b.prop('gr_lantern', 6.5, 2.3, 5.3);
+
+  return {
+    key: SPACE.GAMEROOM, label: '雀庄·东风阁', indoor: true, bounds,
+    spawn: [2.4, 0, 4.8, Math.PI],
+    colliders: b.colliders, interactables: b.interactables, props: b.props,
+    npcs: [], heightZones: [],
+  };
+}
+
 // ═════════════════════════ PERSONAL ROOM SHELL ══════════════════════════════
 export const ROOM_BOUNDS: Bounds = { minX: -6, maxX: 6, minZ: -5, maxZ: 5 };
 export const ROOM_SPAWN: [number, number, number, number] = [0, 0, 3.6, Math.PI];
@@ -481,16 +626,31 @@ export const ROOM_SWITCH: Interactable = {
 
 // ── Registry ────────────────────────────────────────────────────────────────
 export const LAYOUTS: Record<string, SpaceLayout> = {};
-for (const l of [buildPlaza(), buildCafe(), buildCinema(), buildArcade(), buildShop(), buildLobby()]) {
+for (const l of [
+  buildCity(), buildCafe(), buildCinema(), buildArcade(), buildShop(), buildLobby(),
+  buildNetcafe(), buildGameroom(),
+]) {
   LAYOUTS[l.key] = l;
 }
 
 export function floorHeightAt(layout: SpaceLayout | null, x: number, z: number): number {
   if (!layout) return 0;
   for (const hz of layout.heightZones) {
-    if (x >= hz.minX && x <= hz.maxX && z >= hz.minZ && z <= hz.maxZ) {
-      const t = (z - hz.cx) / hz.half;
-      return Math.max(0, hz.peak * (1 - t * t));
+    if (x < hz.minX || x > hz.maxX || z < hz.minZ || z > hz.maxZ) continue;
+    switch (hz.kind) {
+      case 'bridgeZ': {
+        const t = (z - hz.cx) / hz.half;
+        return Math.max(0, hz.peak * (1 - t * t));
+      }
+      case 'deck':
+        return hz.y;
+      case 'ramp': {
+        // dir = 下坡朝向:'n' 向北(-z)降到 0,'s' 向南(+z),'e' 向东(+x),'w' 向西(-x)
+        const tx = (x - hz.minX) / (hz.maxX - hz.minX || 1);
+        const tz = (z - hz.minZ) / (hz.maxZ - hz.minZ || 1);
+        const f = hz.dir === 'n' ? tz : hz.dir === 's' ? 1 - tz : hz.dir === 'e' ? 1 - tx : tx;
+        return hz.y * f;
+      }
     }
   }
   return 0;

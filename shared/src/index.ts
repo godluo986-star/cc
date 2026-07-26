@@ -4,6 +4,7 @@ export * from './math';
 export * from './media';
 export * from './protocol';
 export * from './catalog';
+export * from './cityplan';
 export * from './layouts';
 export * from './xiangqi';
 export * from './mahjong';

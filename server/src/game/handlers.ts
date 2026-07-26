@@ -534,6 +534,34 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     }
   },
 
+  rj_action(world, s, d: C2SPayload<'rj_action'>) {
+    if (!s.buckets.generic.take()) return;
+    const sp = space(world, s);
+    if (!sp) return;
+    const table = sp.rj.get(d.tableId);
+    if (!table) return;
+    let err: string | null = null;
+    switch (d.action) {
+      case 'sit': {
+        if (!nearInteractable(sp, s, d.tableId, ['riichi'])) return;
+        err = table.sit(s);
+        break;
+      }
+      case 'leave':
+        table.leave(s);
+        break;
+      case 'start':
+        err = table.start(s);
+        break;
+      default:
+        err = table.action(s, d.action, d.tileId, d.meld);
+        break;
+    }
+    if (err) { toast(s, 'info', err); return; }
+    sp.broadcastRiichi(table);
+    world.settleRiichi(sp, table);
+  },
+
   room_edit(world, s, d: C2SPayload<'room_edit'>) {
     if (!s.buckets.generic.take()) return;
     const sp = space(world, s);

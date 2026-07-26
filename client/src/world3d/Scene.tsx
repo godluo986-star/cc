@@ -7,7 +7,7 @@ import { hot } from '../state/hot';
 import SkySystem from './env/SkySystem';
 import LocalPlayer from './LocalPlayer';
 import RemotePlayers from './RemotePlayers';
-import Plaza from './spaces/Plaza';
+import City from './city/City';
 import Interior from './spaces/Interior';
 import PersonalRoom from './spaces/PersonalRoom';
 import { music } from '../audio/music';
@@ -43,7 +43,7 @@ function Drivers() {
 function SpaceRenderer({ spaceKey }: { spaceKey: string }) {
   if (isRoomSpace(spaceKey)) return <PersonalRoom />;
   switch (spaceKey) {
-    case SPACE.PLAZA: return <Plaza />;
+    case SPACE.PLAZA: return <City />;
     case SPACE.CAFE:
     case SPACE.CINEMA:
     case SPACE.ARCADE:

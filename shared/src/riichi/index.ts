@@ -10,3 +10,4 @@ export * from './win';
 export * from './yaku';
 export * from './score';
 export * from './calls';
+export * from './view';

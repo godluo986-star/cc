@@ -21,6 +21,10 @@ import {
 import MediaScreen from '../media/MediaScreen';
 import { Bookshelf } from '../prefabs/furniture';
 import { XiangqiTablePrefab, MahjongTablePrefab } from '../prefabs/gameTables';
+import {
+  CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
+  CPhone, CLocker, CManhole, CHydrant, CPlanter, CPier,
+} from '../city/props2';
 
 export function renderProp(p: Prop, key: string | number): ReactNode {
   const pos = p.pos;
@@ -57,6 +61,36 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'coffee_table': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><CoffeeTable color="#6e5136" /></group>;
     case 'plant': return <group key={key} position={pos}><Plant color="#3f7d44" /></group>;
     case 'fireplace': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Fireplace color="#8a8078" state={{ on: true }} /></group>;
+    // ── 「黄昏街区」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──────
+    case 'c_lamp': return <CLamp key={key} position={pos} ry={p.ry} />;
+    case 'c_vend': return (
+      <CVend key={key} position={pos} ry={p.ry}
+        kind={p.data?.variant === 'blue' || p.data?.kind === 'blue' ? 'blue' : 'red'} />
+    );
+    case 'c_bench': return <CBench key={key} position={pos} ry={p.ry} />;
+    case 'c_fence': return <CFence key={key} position={pos} ry={p.ry} w={(p.data?.w as number) ?? 1.8} />;
+    case 'c_pier': return <CPier key={key} position={pos} />;
+    case 'c_bike': return (
+      <CBike key={key} position={pos} ry={p.ry}
+        fallen={p.data?.fallen === true || p.data?.variant === 1} />
+    );
+    case 'c_trash': return <CTrash key={key} position={pos} ry={p.ry} crow={p.data?.crow !== false} />;
+    case 'c_poster': return <CPoster key={key} position={pos} ry={p.ry} variant={(p.data?.variant as number) ?? 0} />;
+    case 'c_ac': return <CAc key={key} position={pos} ry={p.ry} />;
+    case 'c_wires': return (
+      <CWires key={key} position={pos} ry={p.ry}
+        to={p.data?.to as [number, number, number] | undefined}
+        len={(p.data?.len as number) ?? 12}
+        sag={(p.data?.sag as number) ?? 1}
+        strands={(p.data?.strands as number) ?? 2} />
+    );
+    case 'c_signal': return <CSignal key={key} position={pos} ry={p.ry} />;
+    case 'c_phone': return <CPhone key={key} position={pos} ry={p.ry} />;
+    case 'c_locker': return <CLocker key={key} position={pos} ry={p.ry} />;
+    case 'c_manhole': return <CManhole key={key} position={pos} />;
+    case 'c_hydrant': return <CHydrant key={key} position={pos} ry={p.ry} />;
+    case 'c_planter': return <CPlanter key={key} position={pos} ry={p.ry} />;
+    // 未知类型一律返回 null 保底(向前兼容 P2 后续新增)
     default: return null;
   }
 }
@@ -86,6 +120,10 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'lightsout': return <LightsOutMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'vending': {
+      // 「黄昏街区」户外售货机(v-vend*):城市赛璐璐外观(c_vend 可互动版,红/蓝按标签)
+      if (it.id.startsWith('v-vend')) {
+        return <CVend key={key} position={[it.pos[0], 0, it.pos[2]]} ry={it.ry} kind={it.label.includes('蓝') ? 'blue' : 'red'} />;
+      }
       const items = (it.data?.items as string[]) ?? [];
       return <VendingMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} kind={items.includes('coffee') ? 'coffee' : 'drinks'} />;
     }

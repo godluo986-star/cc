@@ -101,11 +101,12 @@ describe('layouts', () => {
       expect(Math.hypot(x - sx, z - sz)).toBeLessThan(0.01);
     }
   });
-  it('bridge height zone is raised in the middle and flat at ends', () => {
-    const plaza = LAYOUTS['plaza'];
-    expect(floorHeightAt(plaza, 16, 30)).toBeCloseTo(0.55, 2);
-    expect(floorHeightAt(plaza, 16, 25.5)).toBeLessThan(0.06);
-    expect(floorHeightAt(plaza, 0, 0)).toBe(0);
+  it('overpass deck is flat at 5.2 and ramps rise linearly', () => {
+    const city = LAYOUTS['plaza'];
+    expect(floorHeightAt(city, 0, -32)).toBeCloseTo(5.2, 3);       // 桥面
+    expect(floorHeightAt(city, 9.5, -21.5)).toBeCloseTo(2.6, 2);   // 坡道中点
+    expect(floorHeightAt(city, 9.5, -13.6)).toBeLessThan(0.05);    // 坡底
+    expect(floorHeightAt(city, 0, 0)).toBe(0);                     // 路口平地
   });
 });
 

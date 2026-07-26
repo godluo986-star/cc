@@ -15,6 +15,7 @@ import { sendRaw, send } from './session';
 import { encode } from '@nexuspark/shared';
 import { XiangqiTable } from './xiangqiTable';
 import { MahjongTable } from './mahjongTable';
+import { RiichiTable } from './riichiTable';
 
 export interface SeatDef { x: number; y: number; z: number; ry: number; }
 
@@ -66,6 +67,7 @@ export class Space {
   lo = new Map<string, LoInternal>();
   xq = new Map<string, XiangqiTable>();
   mj = new Map<string, MahjongTable>();
+  rj = new Map<string, RiichiTable>();
   emptySince = Date.now();
   /** True if this space supports a synchronized media screen. */
   readonly hasScreen: boolean;
@@ -117,6 +119,8 @@ export class Space {
         }
         if (i.kind === 'xiangqi') this.xq.set(i.id, new XiangqiTable(i.id));
         if (i.kind === 'mahjong') this.mj.set(i.id, new MahjongTable(i.id));
+        // 'riichi' 字面量由并行工单加入联合类型,这里按字符串比较避免编译依赖
+        if ((i.kind as string) === 'riichi') this.rj.set(i.id, new RiichiTable(i.id));
       }
       this.npcs = layout.npcs.map((def) => ({
         def, x: def.waypoints[0][0], z: def.waypoints[0][1], ry: 0, wpIdx: 0, pauseUntil: 0, moving: false,
@@ -371,6 +375,13 @@ export class Space {
     }
   }
 
+  /** Broadcast a riichi table with per-viewer redaction. */
+  broadcastRiichi(table: RiichiTable): void {
+    for (const member of this.sessions) {
+      send(member, 'game_rj', table.viewFor(member));
+    }
+  }
+
   /** Remove a session from any game machines it occupies. */
   dropFromGames(s: Session): void {
     for (const t of this.xq.values()) {
@@ -378,6 +389,9 @@ export class Space {
     }
     for (const t of this.mj.values()) {
       if (t.dropSession(s)) this.broadcastMahjong(t);
+    }
+    for (const t of this.rj.values()) {
+      if (t.dropSession(s)) this.broadcastRiichi(t);
     }
     for (const t of this.ttt.values()) {
       const idx = t.players.indexOf(s);

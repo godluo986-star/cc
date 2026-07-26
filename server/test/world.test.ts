@@ -32,17 +32,21 @@ describe('world membership and movement', () => {
     expect(lastOf(a.ws, 'correction')).toBeTruthy();
   });
 
-  it('blocks walking into the fountain collider', () => {
+  it('blocks walking into the closed subway entrance (station steps)', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    // walk toward the fountain center step by step
-    for (let i = 0; i < 60; i++) {
+    // 从出生点(0,52)一步步走向封闭地铁口(12,68);台阶区 box 7×4.5 拦住
+    for (let i = 0; i < 80; i++) {
       a.session.lastInputAt = Date.now() - 120;
-      const nz = a.session.z - 0.35;
-      handlers.input(world, a.session, { p: [0, 0, nz], ry: 0, st: 0, seq: i + 1 });
+      const dx = 12 - a.session.x, dz = 68 - a.session.z;
+      const d = Math.hypot(dx, dz) || 1;
+      handlers.input(world, a.session, {
+        p: [a.session.x + (dx / d) * 0.32, 0, a.session.z + (dz / d) * 0.32], ry: 0, st: 0, seq: i + 1,
+      });
     }
-    expect(Math.hypot(a.session.x, a.session.z)).toBeGreaterThan(4.8);
+    const inside = Math.abs(a.session.x - 12) < 3.7 && Math.abs(a.session.z - 68) < 2.5;
+    expect(inside).toBe(false);
   });
 
   it('sits, blocks double-sit, and stands', () => {
@@ -51,16 +55,16 @@ describe('world membership and movement', () => {
     const b = mkSession('bob');
     world.join(a.session, SPACE.PLAZA);
     world.join(b.session, SPACE.PLAZA);
-    // teleport near a fountain bench seat
-    a.session.x = 0; a.session.z = 8; b.session.x = 0; b.session.z = 8;
-    handlers.sit(world, a.session, { seatId: 'pb3-s0' });
-    expect(a.session.seatId).toBe('pb3-s0');
-    handlers.sit(world, b.session, { seatId: 'pb3-s0' });
+    // teleport near a station-plaza bench seat
+    a.session.x = 3.4; a.session.z = 47; b.session.x = 3.4; b.session.z = 47;
+    handlers.sit(world, a.session, { seatId: 'sb0-s0' });
+    expect(a.session.seatId).toBe('sb0-s0');
+    handlers.sit(world, b.session, { seatId: 'sb0-s0' });
     expect(b.session.seatId).toBe(null);
     handlers.stand(world, a.session, {});
     expect(a.session.seatId).toBe(null);
-    handlers.sit(world, b.session, { seatId: 'pb3-s0' });
-    expect(b.session.seatId).toBe('pb3-s0');
+    handlers.sit(world, b.session, { seatId: 'sb0-s0' });
+    expect(b.session.seatId).toBe('sb0-s0');
   });
 
   it('enforces door adjacency for space switching', () => {
@@ -70,8 +74,8 @@ describe('world membership and movement', () => {
     // far from the café door: rejected
     handlers.switch_space(world, a.session, { target: SPACE.CAFE });
     expect(a.session.spaceKey).toBe('plaza');
-    // move to the café door and try again
-    a.session.x = -30; a.session.z = -16.4;
+    // move to the café door (南街西侧) and try again
+    a.session.x = -12.6; a.session.z = 30;
     handlers.switch_space(world, a.session, { target: SPACE.CAFE });
     expect(a.session.spaceKey).toBe('cafe');
   });
@@ -153,7 +157,7 @@ describe('media sync', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    a.session.x = 30; a.session.z = -17.4;
+    a.session.x = 30; a.session.z = -12.6; // 影院门口(东街北侧)
     handlers.switch_space(world, a.session, { target: SPACE.CINEMA });
     const cinema = world.spaces.get(SPACE.CINEMA)!;
     handlers.media_set(world, a.session, { url: 'https://example.com/movie.mp4' });
@@ -172,7 +176,7 @@ describe('media sync', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    a.session.x = 30; a.session.z = -17.4;
+    a.session.x = 30; a.session.z = -12.6; // 影院门口(东街北侧)
     handlers.switch_space(world, a.session, { target: SPACE.CINEMA });
     const cinema = world.spaces.get(SPACE.CINEMA)!;
     handlers.media_set(world, a.session, { url: 'https://youtu.be/dQw4w9WgXcQ' });
@@ -189,7 +193,7 @@ describe('media sync', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    a.session.x = 30; a.session.z = -17.4;
+    a.session.x = 30; a.session.z = -12.6; // 影院门口(东街北侧)
     handlers.switch_space(world, a.session, { target: SPACE.CINEMA });
     const cinema = world.spaces.get(SPACE.CINEMA)!;
     handlers.media_set(world, a.session, { url: 'https://en.wikipedia.org/wiki/Dango' });
@@ -219,7 +223,7 @@ describe('arcade games', () => {
     const b = rig.mkSession('bob');
     for (const p of [a, b]) {
       rig.world.join(p.session, SPACE.PLAZA);
-      p.session.x = 29.4; p.session.z = 10;
+      p.session.x = 30; p.session.z = 12.6; // 街机厅门口(东街南侧)
       handlers.switch_space(rig.world, p.session, { target: SPACE.ARCADE });
       p.session.x = -4.4; p.session.z = -4.2; // near ttt1
     }
@@ -272,7 +276,7 @@ describe('象棋 + 麻将牌桌', () => {
     const b = rig.mkSession('bob');
     for (const p of [a, b]) {
       rig.world.join(p.session, SPACE.PLAZA);
-      p.session.x = -30; p.session.z = -16.4;
+      p.session.x = -12.6; p.session.z = 30; // 咖啡馆门口(南街西侧)
       handlers.switch_space(rig.world, p.session, { target: SPACE.CAFE });
       p.session.x = -4.2; p.session.z = 3.2;
     }
@@ -417,7 +421,7 @@ describe('economy', () => {
     const { world, mkSession, db } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    a.session.x = -29.4; a.session.z = 10;
+    a.session.x = -30; a.session.z = 12.6; // 便利店门口(西街南侧)
     handlers.switch_space(world, a.session, { target: SPACE.SHOP });
     a.session.x = -3; a.session.z = -4.6;
     const before = (db.prepare('SELECT credits FROM users WHERE id = ?').get(a.session.user.id) as { credits: number }).credits;

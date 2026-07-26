@@ -73,6 +73,14 @@ export const c2s = {
     action: z.enum(['sit', 'leave', 'start', 'discard', 'pong', 'kong', 'hu', 'pass']),
     tile: z.number().int().min(0).max(33).optional(),
   }),
+  rj_action: z.object({
+    tableId: z.string().min(1).max(32),
+    action: z.enum(['sit', 'leave', 'start', 'discard', 'riichi', 'chi', 'pon', 'kan', 'ron', 'tsumo', 'pass']),
+    /** 实体牌 id(0-135):打牌 / 立直宣言牌 / 暗杠·加杠所指的牌。 */
+    tileId: z.number().int().min(0).max(135).optional(),
+    /** 吃/碰/杠所用自家实体牌 id 组(用于红5 选择)。 */
+    meld: z.array(z.number().int().min(0).max(135)).max(4).optional(),
+  }),
   room_edit: z.discriminatedUnion('op', [
     z.object({ op: z.literal('add'), type: z.string().max(32), x: finite, y: finite, z: finite, ry: finite, color: hexColor }),
     z.object({ op: z.literal('move'), id: z.number().int(), x: finite, y: finite, z: finite, ry: finite }),
@@ -128,6 +136,7 @@ export interface S2CMap {
   game_lo: LightsOutState;
   game_xq: import('./xiangqi').XiangqiState;
   game_mj: import('./mahjong').MahjongView;
+  game_rj: import('./riichi/view').RiichiView;
   room_data: RoomData;
   room_dir: { rooms: RoomDirectoryEntry[] };
   env: WorldEnv;

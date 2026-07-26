@@ -228,6 +228,14 @@ export class World {
       if (i.kind === 'board') boards[i.id] = space.loadBoard(i.id);
     }
     const media = space.media ? { ...space.media, position: space.mediaPosition(), updatedAt: Date.now() } : null;
+    // riichi 字段由并行工单并入 SpaceInit.games 类型;先经变量赋值绕过冗余属性检查
+    const games = {
+      tictactoe: [...space.ttt.values()].map((t) => space.tttPublic(t)),
+      lightsout: [...space.lo.values()].map((l) => space.loPublic(l)),
+      xiangqi: [...space.xq.values()].map((t) => t.publicState()),
+      mahjong: [...space.mj.values()].map((t) => t.viewFor(session)),
+      riichi: [...space.rj.values()].map((t) => t.viewFor(session)),
+    };
     return {
       spaceKey: space.key,
       label: space.label,
@@ -244,12 +252,7 @@ export class World {
       switches: Object.fromEntries(space.switches),
       objs: o ?? [],
       room: space.roomData,
-      games: {
-        tictactoe: [...space.ttt.values()].map((t) => space.tttPublic(t)),
-        lightsout: [...space.lo.values()].map((l) => space.loPublic(l)),
-        xiangqi: [...space.xq.values()].map((t) => t.publicState()),
-        mahjong: [...space.mj.values()].map((t) => t.viewFor(session)),
-      },
+      games,
       voiceRoster: space.voiceRoster(),
       voiceWorldRoster: this.worldVoiceIds(),
       screenRoster: space.screenRoster(),
@@ -327,6 +330,12 @@ export class World {
             }
           }
         }
+        for (const table of space.rj.values()) {
+          if (table.tick(now)) {
+            space.broadcastRiichi(table);
+            this.settleRiichi(space, table);
+          }
+        }
         const snap = space.buildSnapshot(now);
         const raw = encode('snap', { t: now, ...snap });
         for (const s of space.sessions) sendRaw(s, raw);
@@ -367,6 +376,21 @@ export class World {
       this.systemChat(space, `${seat.session.user.username} ${kindText} 赢了 ${reward} 金币!`);
     } else {
       this.systemChat(space, `机器人${kindText},下次加油!`);
+    }
+  }
+
+  /** 结算日麻和牌:排空 pendingEvents,给真人赢家发信用点 + 系统播报。 */
+  settleRiichi(space: Space, table: Space['rj'] extends Map<string, infer T> ? T : never): void {
+    for (const ev of table.drainEvents()) {
+      if (ev.kind !== 'finish') continue;
+      const seat = table.seats[ev.winnerSeat];
+      if (seat.session) {
+        this.db.prepare('UPDATE users SET credits = credits + ? WHERE id = ?').run(ev.reward, seat.session.user.id);
+        send(seat.session, 'self_update', this.buildSelfState(seat.session));
+        this.systemChat(space, `${seat.session.user.username} 在立直麻将桌和牌,赢了 ${ev.reward} 金币!`);
+      } else {
+        this.systemChat(space, '立直麻将桌上机器人和牌了,下次加油!');
+      }
     }
   }
 
