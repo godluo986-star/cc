@@ -154,6 +154,12 @@ export function MediaPanel() {
               ))}
             </div>
           )}
+          {(media?.url || isShare) && (
+            <div className="dim" style={{ fontSize: 12 }}>
+              👀 正在一起看({roster.filter((p) => !p.isNpc).length} 人):
+              {roster.filter((p) => !p.isNpc).map((p) => p.username).join('、')}
+            </div>
+          )}
           {media?.url && isTimed && <SeekBar playing={media.playing} />}
           {media?.url && isTimed && (
             <div className="media-controls">

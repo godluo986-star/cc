@@ -1,7 +1,8 @@
 /** Generic interior renderer: shell (floor/walls/ceiling with door gaps),
  *  per-space lighting tied to switches, plus all layout props/interactables. */
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { MeshReflectorMaterial } from '@react-three/drei';
 import { LAYOUTS } from '@nexuspark/shared';
 import type { SpaceLayout } from '@nexuspark/shared';
@@ -178,12 +179,30 @@ export function Walls({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorConfi
   );
 }
 
+/** 放映时平滑变暗的顶灯(影院观影氛围;暂停/清屏时缓慢恢复)。 */
+function DimmableCeilingLight({ color, intensity, dimTarget }: { color: string; intensity: number; dimTarget: number }) {
+  const ref = useRef<THREE.PointLight>(null);
+  useFrame((_, dt) => {
+    const l = ref.current;
+    if (!l) return;
+    const target = intensity * dimTarget;
+    l.intensity += (target - l.intensity) * Math.min(1, dt * 1.6); // ~0.6s 半衰,平滑不跳变
+  });
+  return <pointLight ref={ref} position={[0, -0.5, 0]} color={color} intensity={intensity} distance={13} decay={1.7} />;
+}
+
 export default function Interior({ spaceKey }: { spaceKey: string }) {
   const layout = LAYOUTS[spaceKey];
   const cfg = CONFIGS[spaceKey];
   const switches = useWorld((s) => s.switches);
+  const media = useWorld((s) => s.media);
   const reflections = useSettings((s) => s.reflections);
   const lightsOn = cfg.lightSwitchId ? (switches[cfg.lightSwitchId] ?? true) : true;
+  // 影院:开播灯光压到 22%,暂停回到 55%,无片全亮(任务书 §二十二 影厅体验)
+  const playingNow = !!media && (!!media.url || media.kind === 'share');
+  const dimTarget = spaceKey === 'cinema'
+    ? (playingNow ? (media!.playing || media!.kind === 'share' ? 0.22 : 0.55) : 1)
+    : 1;
   const tex = useMemo(() => floorTex(cfg.floor), [cfg.floor]);
   const w = layout.bounds.maxX - layout.bounds.minX;
   const d = layout.bounds.maxZ - layout.bounds.minZ;
@@ -228,12 +247,12 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
             <meshStandardMaterial
               color="#d8d4cc"
               emissive={l.color}
-              emissiveIntensity={lightsOn ? 1.4 : 0.02}
+              emissiveIntensity={(lightsOn ? 1.4 : 0.02) * (dimTarget < 1 ? 0.35 : 1)}
               roughness={0.5}
             />
           </mesh>
           {lightsOn && (
-            <pointLight position={[0, -0.5, 0]} color={l.color} intensity={l.intensity * 1.8} distance={13} decay={1.7} />
+            <DimmableCeilingLight color={l.color} intensity={l.intensity * 1.8} dimTarget={dimTarget} />
           )}
         </group>
       ))}

@@ -86,8 +86,11 @@ export function SiteFrame({ media, px, py }: PlayerProps) {
 export function SyncedVideo({ media, px, py }: PlayerProps) {
   const ref = useRef<HTMLVideoElement>(null);
   const [err, setErr] = useState(false);
+  // 浏览器要求用户手势才能出声播放时:显示「点击继续一起观看」,
+  // 点击后立即追到权威进度(任务书 §十二),不从旧进度续播。
+  const [needGesture, setNeedGesture] = useState(false);
   const mediaVolume = useSettings((s) => s.mediaVolume);
-  useEffect(() => setErr(false), [media.url]);
+  useEffect(() => { setErr(false); setNeedGesture(false); }, [media.url]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -127,15 +130,26 @@ export function SyncedVideo({ media, px, py }: PlayerProps) {
         mediaRuntime.reportSync({ drift, mode: 'seek', rate: el.playbackRate, expected: target, local: el.currentTime });
       }
 
-      if (media.playing && el.paused) el.play().catch(() => { el.muted = true; el.play().catch(() => setErr(true)); });
-      else if (!media.playing && !el.paused) { el.pause(); el.currentTime = target; }
+      if (media.playing && el.paused) {
+        el.play().then(() => setNeedGesture(false)).catch(() => {
+          el.muted = true;
+          el.play().then(() => setNeedGesture(false)).catch(() => setNeedGesture(true));
+        });
+      } else if (!media.playing && !el.paused) { el.pause(); el.currentTime = target; }
       mediaRuntime.report(el.currentTime, el.duration);
     };
     sync();
     const onCanPlay = () => sync();
     el.addEventListener('canplay', onCanPlay);
+    // 后台标签页恢复:定时器曾被浏览器降频,回前台立即做一次追齐
+    const onVisible = () => { if (document.visibilityState === 'visible') sync(); };
+    document.addEventListener('visibilitychange', onVisible);
     const iv = setInterval(sync, SYNC.TICK_MS);
-    return () => { clearInterval(iv); el.removeEventListener('canplay', onCanPlay); };
+    return () => {
+      clearInterval(iv);
+      el.removeEventListener('canplay', onCanPlay);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [media]);
   useEffect(() => {
     const el = ref.current;
@@ -149,14 +163,34 @@ export function SyncedVideo({ media, px, py }: PlayerProps) {
     );
   }
   return (
-    <video
-      ref={ref}
-      src={media.url!}
-      loop={media.loop}
-      playsInline
-      onError={() => setErr(true)}
-      style={{ width: px, height: py, objectFit: 'contain', background: '#000' }}
-    />
+    <div style={{ width: px, height: py, position: 'relative', background: '#000' }}>
+      <video
+        ref={ref}
+        src={media.url!}
+        loop={media.loop}
+        playsInline
+        onError={() => setErr(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+      />
+      {needGesture && media.playing && (
+        <button
+          onClick={() => {
+            const el = ref.current;
+            if (!el) return;
+            el.muted = false;
+            el.currentTime = mediaTargetPosition(media); // 追到当前权威进度,不续旧进度
+            el.play().then(() => setNeedGesture(false)).catch(() => undefined);
+          }}
+          style={{
+            position: 'absolute', inset: 0, margin: 'auto', width: 260, height: 56, cursor: 'pointer',
+            background: 'rgba(10,14,22,0.88)', color: '#e8ecf4', border: '1px solid #5b8cff',
+            borderRadius: 12, fontSize: 16,
+          }}
+        >
+          ▶ 点击继续一起观看
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -237,7 +271,7 @@ export function YouTubeFrame({ media, px, py }: PlayerProps) {
 
   useEffect(() => {
     let lastSeekAt = 0;
-    const iv = setInterval(() => {
+    const tick = () => {
       const p = playerRef.current;
       if (!p || status !== 'ok' || typeof p.getCurrentTime !== 'function') return;
       try {
@@ -259,8 +293,14 @@ export function YouTubeFrame({ media, px, py }: PlayerProps) {
         p.setVolume(Math.round(mediaVolume * 100));
         if (typeof p.getDuration === 'function') mediaRuntime.report(cur, p.getDuration() || 0);
       } catch { /* player mid-transition */ }
-    }, 1000);
-    return () => clearInterval(iv);
+    };
+    const iv = setInterval(tick, 1000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [media, status, mediaVolume]);
 
   const unmute = () => {

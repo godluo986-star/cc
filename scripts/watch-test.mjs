@@ -142,12 +142,12 @@ for (let i = 0; i < 10; i++) {
     return true;
   });
   if (!opened) { stable = false; console.log('  ✗ 找不到全屏按钮 @ round', i); break; }
-  await p1.waitForTimeout(350);
-  // 世界/全屏的判据:是否处于 CSS3D matrix3d 变换之下
-  // (投影后的 rect 尺寸在巨幕近处会超过视口,不能当判据)
-  const probe = () => {
+  // 世界/全屏的判据:是否处于 CSS3D matrix3d 变换之下(投影 rect 尺寸在
+  // 巨幕近处会超过视口,不能当判据)。原生全屏过渡会暂停渲染几百毫秒,
+  // 所以用轮询等待目标状态而不是定长等待。
+  const probeSrc = `(() => {
     const f = document.querySelector('iframe');
-    let el = f?.parentElement ?? null;
+    let el = f ? f.parentElement : null;
     let matrix = false;
     let hops = 0;
     while (el && hops++ < 8) {
@@ -156,26 +156,33 @@ for (let i = 0; i < 10; i++) {
     }
     return {
       count: document.querySelectorAll('iframe').length,
-      mark: f?.dataset.mark ?? null,
+      mark: f && f.dataset.mark ? f.dataset.mark : null,
       matrix,
       videos: document.querySelectorAll('video').length,
       audios: document.querySelectorAll('audio').length,
     };
+  })()`;
+  const waitState = async (wantMatrix) => {
+    try {
+      await p1.waitForFunction(
+        ([src, want]) => {
+          const s = eval(src);
+          return s.count === 1 && s.mark === 'the-one-and-only' && s.matrix === want
+            && s.videos === 0 && s.audios === 0;
+        },
+        [probeSrc, wantMatrix],
+        { timeout: 5000, polling: 150 },
+      );
+      return null;
+    } catch {
+      return p1.evaluate((src) => eval(src), probeSrc);
+    }
   };
-  const fs = await p1.evaluate(probe);
-  if (fs.count !== 1 || fs.mark !== 'the-one-and-only' || fs.matrix || fs.videos > 0 || fs.audios > 0) {
-    stable = false;
-    console.log('  ✗ 全屏态异常 @ round', i, JSON.stringify(fs));
-    break;
-  }
+  const fsBad = await waitState(false);
+  if (fsBad) { stable = false; console.log('  ✗ 全屏态异常 @ round', i, JSON.stringify(fsBad)); break; }
   await p1.keyboard.press('Escape');
-  await p1.waitForTimeout(350);
-  const back = await p1.evaluate(probe);
-  if (back.count !== 1 || back.mark !== 'the-one-and-only' || !back.matrix) {
-    stable = false;
-    console.log('  ✗ 退出态异常 @ round', i, JSON.stringify(back));
-    break;
-  }
+  const backBad = await waitState(true);
+  if (backBad) { stable = false; console.log('  ✗ 退出态异常 @ round', i, JSON.stringify(backBad)); break; }
 }
 check('进出全屏 ×10:同一 iframe 实例(mark 存活/无重建/无重复元素)', stable);
 const uiFree = await p1.evaluate(() => window.__nx.hot.uiOpen === false);

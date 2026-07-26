@@ -96,6 +96,32 @@ export default function FullscreenViewer() {
     };
   }, [open]);
 
+  // 真·浏览器全屏(任务书 §十五):对覆盖层容器 requestFullscreen,
+  // 失败(能力/权限/无手势)则静默降级为页面内沉浸覆盖层 —— 同一棵播放器
+  // 树,不因降级重建任何媒体实例。浏览器自己退出全屏(Esc/手势)时收敛状态。
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    if (open) {
+      if (document.fullscreenElement !== el && el.requestFullscreen) {
+        el.requestFullscreen().catch(() => { /* 降级为覆盖层模式 */ });
+      }
+    } else if (document.fullscreenElement === el) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+  }, [open]);
+  useEffect(() => {
+    const onFsChange = () => {
+      // 浏览器侧退出(Esc/系统手势)→ 同步收起覆盖层状态
+      if (!document.fullscreenElement && useFullscreenMedia.getState().open) {
+        useFullscreenMedia.getState().setOpen(false);
+      }
+      setVp({ w: window.innerWidth, h: window.innerHeight });
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
   // 调试角标刷新
   useEffect(() => {
     if (!debugOn) return;
