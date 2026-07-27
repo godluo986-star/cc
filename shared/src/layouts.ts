@@ -372,39 +372,46 @@ function buildCafe(): SpaceLayout {
 
 // ═════════════════════════════ CINEMA ═══════════════════════════════════════
 function buildCinema(): SpaceLayout {
+  // 巨幕厅:30×24 大厅、24×10 米银幕(前墙几乎满幅)、6 排阶梯座位、
+  // 双过道 + 宽敞的后部休息区 —— 解决"太挤太小"。
   const b = new B();
-  const bounds: Bounds = { minX: -10, maxX: 10, minZ: -9, maxZ: 9 };
+  const bounds: Bounds = { minX: -15, maxX: 15, minZ: -12, maxZ: 12 };
 
-  b.inter('cine-exit', 'door', 0, 0, 8.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [30, 0, -11.2, 0] });
-  // 超大银幕:几乎占满整面前墙(视觉尺寸在客户端 registry 里定义)
-  b.inter('cine-screen', 'screen', 0, 3.55, -8.4, 0, '影院银幕');
+  b.inter('cine-exit', 'door', 0, 0, 11.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [30, 0, -11.2, 0] });
+  // 巨幕:互动锚点在银幕下沿中线;视觉尺寸(24×10)在客户端 registry 里定义
+  b.inter('cine-screen', 'screen', 0, 5.8, -11.4, 0, '影院银幕');
 
-  // Seat rows: 4 rows × 8 seats, center aisle
+  // 6 排 × 12 座(4-4-4 三段,双过道 x=±3.4),排距 2.1、逐排抬高 0.3
   let seatIdx = 0;
-  for (let row = 0; row < 4; row++) {
-    const z = -1.5 + row * 1.7;
-    for (let col = 0; col < 8; col++) {
-      const x = (col < 4 ? -4.4 + col * 1.15 : 1.0 + (col - 4) * 1.15);
-      b.prop('cinema_seat', x, 0.24 * row, z, Math.PI);
-      b.inter(`cine-s${seatIdx++}`, 'seat', x, 0.47 + 0.24 * row, z, Math.PI, '坐下');
+  for (let row = 0; row < 6; row++) {
+    const z = -3.6 + row * 2.1;
+    const lift = 0.3 * row;
+    for (let col = 0; col < 12; col++) {
+      const seg = Math.floor(col / 4);                       // 0 左 1 中 2 右
+      const x = (seg - 1) * 5.75 + (col % 4 - 1.5) * 1.15;   // 三段各自居中,过道 2.3m
+      b.prop('cinema_seat', x, lift, z, Math.PI);
+      b.inter(`cine-s${seatIdx++}`, 'seat', x, 0.47 + lift, z, Math.PI, '坐下');
     }
-    b.box(-2.7, z, 4.1, 0.55);
-    b.box(2.7, z, 4.1, 0.55);
+    // 座位段碰撞(过道留空,前后可从两侧绕行)
+    b.box(-7.5, z, 4.4, 0.55);
+    b.box(0, z, 4.4, 0.55);
+    b.box(7.5, z, 4.4, 0.55);
   }
 
-  // Concession stand (south-east) with vending machine
-  b.prop('concession', 6.5, 0, 7.2, Math.PI);
-  b.box(6.5, 7.2, 3.4, 1.0);
-  b.inter('cine-vend', 'vending', 9.2, 0, 5.6, -Math.PI / 2, '零食贩卖机', { items: ['soda', 'pizza'] });
-  b.box(9.2, 5.6, 0.8, 0.9);
-
-  b.prop('rope_barrier', -5.5, 0, 7.4, 0);
-  b.prop('plant', -9.3, 0, 8.2); b.circle(-9.3, 8.2, 0.3);
-  b.prop('plant', 9.3, 0, 8.2); b.circle(9.3, 8.2, 0.3);
+  // 后部休息区:小卖部(东南) + 贩卖机 + 立牌
+  b.prop('concession', 10.5, 0, 10, Math.PI);
+  b.box(10.5, 10, 3.4, 1.0);
+  b.inter('cine-vend', 'vending', 13.9, 0, 8, -Math.PI / 2, '零食贩卖机', { items: ['soda', 'pizza'] });
+  b.box(13.9, 8, 0.8, 0.9);
+  b.prop('rope_barrier', -8.5, 0, 10.4, 0);
+  b.prop('plant', -14.2, 0, 11.2); b.circle(-14.2, 11.2, 0.3);
+  b.prop('plant', 14.2, 0, 11.2); b.circle(14.2, 11.2, 0.3);
+  b.prop('plant', -14.2, 0, -10.8); b.circle(-14.2, -10.8, 0.3);
+  b.prop('plant', 14.2, 0, -10.8); b.circle(14.2, -10.8, 0.3);
 
   return {
-    key: SPACE.CINEMA, label: '极光影院', indoor: true, bounds,
-    spawn: [0, 0, 7.2, Math.PI],
+    key: SPACE.CINEMA, label: '极光影院·巨幕厅', indoor: true, bounds,
+    spawn: [0, 0, 10, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: [], mediaPolicy: 'everyone',
   };

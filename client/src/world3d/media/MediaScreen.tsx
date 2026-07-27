@@ -70,7 +70,10 @@ export default function MediaScreen({ position, rotation, width, height, frame =
   const glowRef = useRef<THREE.PointLight>(null);
   const anchorRef = useRef<THREE.Group>(null);
   const id = useMemo(() => `scr_${position.join(',')}_${width}`, [position, width]);
-  const py = Math.round(PX * (height / width));
+  // 渲染像素密度按屏宽走:巨幕(≥12m)用 1440px 面,近看不发虚;
+  // 常规屏保持 720px(iframe 渲染成本与清晰度的折衷)
+  const px = width >= 12 ? 1440 : PX;
+  const py = Math.round(px * (height / width));
 
   useEffect(() => { if (!active) mediaRuntime.reset(); }, [active]);
 
@@ -111,7 +114,7 @@ export default function MediaScreen({ position, rotation, width, height, frame =
       objectCss: getObjectCSSMatrix(anchor.matrixWorld),
       w: size.width,
       h: size.height,
-      px: PX,
+      px,
       py,
       visible,
     });
@@ -139,8 +142,8 @@ export default function MediaScreen({ position, rotation, width, height, frame =
           <meshStandardMaterial color="#05070c" roughness={0.6} />
         </mesh>
       )}
-      {/* 播放层锚点:scale 使 PX px = width 米(drei distanceFactor=400 等价) */}
-      <group ref={anchorRef} position={[0, 0, 0.03]} scale={width / PX} />
+      {/* 播放层锚点:scale 使 px 个 CSS 像素 = width 米(drei distanceFactor=400 等价) */}
+      <group ref={anchorRef} position={[0, 0, 0.03]} scale={width / px} />
       <pointLight ref={glowRef} position={[0, 0, 1.4]} color="#aac4e8" intensity={0.7} distance={7} decay={2} />
     </group>
   );

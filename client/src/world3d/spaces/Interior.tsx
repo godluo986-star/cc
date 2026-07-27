@@ -38,12 +38,16 @@ const CONFIGS: Record<string, InteriorConfig> = {
     windows: [{ side: 's', center: -4.5, w: 2 }, { side: 's', center: 4.5, w: 2 }, { side: 'w', center: 2.5, w: 2 }],
   },
   cinema: {
-    wallColor: '#2b2129', trimColor: '#1a141a', ceilingColor: '#171218', height: 7.2,
-    floor: 'carpet', gaps: [{ side: 's', center: 0, width: 3 }],
+    // 巨幕厅:30×24×12,红色氛围壁灯沿两侧,后区暖光
+    wallColor: '#2b2129', trimColor: '#1a141a', ceilingColor: '#171218', height: 12,
+    floor: 'carpet', gaps: [{ side: 's', center: 0, width: 3.4 }],
     lights: [
-      { x: -8, z: 0, color: '#c05555', intensity: 3.2 },
-      { x: 8, z: 0, color: '#c05555', intensity: 3.2 },
-      { x: 0, z: 7, color: '#ffb454', intensity: 4.5 },
+      { x: -12, z: -4, color: '#c05555', intensity: 3.2 },
+      { x: 12, z: -4, color: '#c05555', intensity: 3.2 },
+      { x: -12, z: 4, color: '#c05555', intensity: 3.2 },
+      { x: 12, z: 4, color: '#c05555', intensity: 3.2 },
+      { x: 0, z: 10, color: '#ffb454', intensity: 5 },
+      { x: 10.5, z: 9, color: '#ffb454', intensity: 4 },
     ],
   },
   arcade: {
@@ -180,7 +184,7 @@ export function Walls({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorConfi
 }
 
 /** 放映时平滑变暗的顶灯(影院观影氛围;暂停/清屏时缓慢恢复)。 */
-function DimmableCeilingLight({ color, intensity, dimTarget }: { color: string; intensity: number; dimTarget: number }) {
+function DimmableCeilingLight({ color, intensity, dimTarget, reach }: { color: string; intensity: number; dimTarget: number; reach: number }) {
   const ref = useRef<THREE.PointLight>(null);
   useFrame((_, dt) => {
     const l = ref.current;
@@ -188,7 +192,7 @@ function DimmableCeilingLight({ color, intensity, dimTarget }: { color: string; 
     const target = intensity * dimTarget;
     l.intensity += (target - l.intensity) * Math.min(1, dt * 1.6); // ~0.6s 半衰,平滑不跳变
   });
-  return <pointLight ref={ref} position={[0, -0.5, 0]} color={color} intensity={intensity} distance={13} decay={1.7} />;
+  return <pointLight ref={ref} position={[0, -0.5, 0]} color={color} intensity={intensity} distance={reach} decay={1.7} />;
 }
 
 export default function Interior({ spaceKey }: { spaceKey: string }) {
@@ -201,7 +205,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
   // 影院:开播灯光压到 22%,暂停回到 55%,无片全亮(任务书 §二十二 影厅体验)
   const playingNow = !!media && (!!media.url || media.kind === 'share');
   const dimTarget = spaceKey === 'cinema'
-    ? (playingNow ? (media!.playing || media!.kind === 'share' ? 0.22 : 0.55) : 1)
+    ? (playingNow ? (media!.playing || media!.kind === 'share' ? 0.28 : 0.55) : 1)
     : 1;
   const tex = useMemo(() => floorTex(cfg.floor), [cfg.floor]);
   const w = layout.bounds.maxX - layout.bounds.minX;
@@ -252,7 +256,13 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
             />
           </mesh>
           {lightsOn && (
-            <DimmableCeilingLight color={l.color} intensity={l.intensity * 1.8} dimTarget={dimTarget} />
+            // 高顶棚(巨幕厅 12m)需要更强更远的灯才能照到地面
+            <DimmableCeilingLight
+              color={l.color}
+              intensity={l.intensity * 1.8 * (cfg.height > 6 ? 2.6 : 1)}
+              dimTarget={dimTarget}
+              reach={Math.max(13, cfg.height * 2.4)}
+            />
           )}
         </group>
       ))}

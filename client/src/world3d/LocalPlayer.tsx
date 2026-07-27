@@ -21,7 +21,7 @@ import { buildTargets, buildColliders, performAction, labelFor, type Target } fr
 import { audio } from '../audio/engine';
 
 /** Interior ceiling heights for camera containment (rooms default to 3.0). */
-const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 7.2, arcade: 3.6, shop: 3.4, lobby: 4.2 };
+const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 12, arcade: 3.6, shop: 3.4, lobby: 4.2 };
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 

@@ -103,12 +103,13 @@ const browser = await chromium.launch({
 const p1 = await newPlayer(browser, `watch_p1_${RUN}`);
 check('p1 进入电影院', (await intoCinema(p1)) === 'cinema');
 
-// ── p1 放一个网页(iframe 播放器)并靠近银幕 ──
-await walkTo(p1, 0, -4.5, 25000);
+// ── p1 放一个网页(iframe 播放器)并靠近银幕(巨幕厅:走西过道绕过座位段)──
+await walkTo(p1, -2.9, 4, 20000);
+await walkTo(p1, -2.9, -6.5, 25000);
 for (let i = 0; i < 5; i++) {
   const prompt = await p1.evaluate(() => document.querySelector('.prompt')?.textContent ?? null);
   if (prompt && prompt.includes('银幕')) { await p1.keyboard.press('KeyE'); await p1.waitForTimeout(1000); break; }
-  await walkTo(p1, 0, -5.8, 5000, 0.6);
+  await walkTo(p1, 0, -9.4, 6000, 0.6);
 }
 await p1.locator('input[placeholder^="https"]').fill('https://watch-test.invalid/page');
 await p1.getByText('放映', { exact: true }).click();

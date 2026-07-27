@@ -123,7 +123,7 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     );
     // 影院超大银幕:几乎铺满整面前墙;网吧联赛大屏 6×3.4;其余挂屏常规尺寸
     case 'screen': return it.id === 'cine-screen'
-      ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={16} height={6.4} />
+      ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={24} height={10} />
       : it.id === 'nc-wall'
         ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={6} height={3.4} />
         : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;

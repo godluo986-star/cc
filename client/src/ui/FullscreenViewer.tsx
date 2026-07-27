@@ -39,14 +39,18 @@ export default function FullscreenViewer() {
   const camRef = useRef<HTMLDivElement>(null);     // 相机矩阵层
   const objRef = useRef<HTMLDivElement>(null);     // 物体矩阵层(含播放器)
   const frameRef = useRef<LayerFrame | null>(null);
-  // 世界模式下播放器的 CSS 高度(跟随持有屏的宽高比;仅比例变化时才重渲染)
+  // 世界模式下播放器的 CSS 尺寸(跟随持有屏的像素密度与宽高比;仅变化时重渲染)
+  const [worldPx, setWorldPx] = useState(PX);
   const [worldPy, setWorldPy] = useState(Math.round(PX * 9 / 16));
 
   // 世界模式:MediaScreen 每帧推矩阵,直接写 DOM(不触发 React)
   useEffect(() => {
     mediaRuntime.onLayerFrame((f) => {
       frameRef.current = f;
-      if (f) setWorldPy((prev) => (prev === f.py ? prev : f.py));
+      if (f) {
+        setWorldPx((prev) => (prev === f.px ? prev : f.px));
+        setWorldPy((prev) => (prev === f.py ? prev : f.py));
+      }
       const outer = outerRef.current;
       const cam = camRef.current;
       const obj = objRef.current;
@@ -131,7 +135,7 @@ export default function FullscreenViewer() {
 
   if (!media || !active) return null;
 
-  const playerPx = open ? vp.w : PX;
+  const playerPx = open ? vp.w : worldPx;
   const playerPy = open ? vp.h : worldPy;
 
   // 黑边感知点击(全屏 + video/share):黑边不算内容点击(任务书 §十八)
