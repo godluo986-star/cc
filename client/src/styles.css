@@ -211,3 +211,17 @@ input[type="range"] { accent-color: var(--accent); }
 
 .kbd-help { font-size: 13px; line-height: 1.7; }
 .kbd-help .key { background: #232c40; border: 1px solid rgba(120,150,200,0.35); border-radius: 5px; padding: 1px 7px; font-size: 12px; margin-right: 6px; display: inline-block; min-width: 34px; text-align: center; }
+
+/* ── 手机触控层 ─────────────────────────────────────────────────────────── */
+.touch-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  font-size: 18px;
+  background: rgba(20, 26, 40, 0.55);
+  border: 1.5px solid rgba(150, 170, 210, 0.4);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.touch-btn:active { background: rgba(90, 120, 190, 0.6); }

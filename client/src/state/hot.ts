@@ -71,6 +71,8 @@ class HotState {
   /** Server time offset estimate (serverNow ≈ Date.now() + offset). */
   serverTimeOffset = 0;
   keys = new Set<string>();
+  /** 手机虚拟摇杆向量(屏幕系:x 右+,z 前+;模长 ≤1;无触控恒 0)。 */
+  touchVec = { x: 0, z: 0 };
   chatFocused = false;
   uiOpen = false;
 

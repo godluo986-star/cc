@@ -188,9 +188,14 @@ export default function LocalPlayer() {
       if (k.has('KeyS') || k.has('ArrowDown')) iz -= 1;
       if (k.has('KeyA') || k.has('ArrowLeft')) ix -= 1;
       if (k.has('KeyD') || k.has('ArrowRight')) ix += 1;
+      // 手机虚拟摇杆(与按键叠加后钳到单位圆;推满自动跑)
+      ix += hot.touchVec.x;
+      iz += hot.touchVec.z;
+      const il = Math.hypot(ix, iz);
+      if (il > 1) { ix /= il; iz /= il; }
     }
-    const moving = ix !== 0 || iz !== 0;
-    const running = moving && (k.has('ShiftLeft') || k.has('ShiftRight'));
+    const moving = Math.hypot(ix, iz) > 0.12;
+    const running = moving && (k.has('ShiftLeft') || k.has('ShiftRight') || Math.hypot(hot.touchVec.x, hot.touchVec.z) > 0.92);
 
     // 相机系移动方向(被抓时同样用它编码挣扎意图)
     // 前向 = 相机指向角色的方向 (-sin,-cos);屏幕右 = 前向×上 = (cos,-sin)

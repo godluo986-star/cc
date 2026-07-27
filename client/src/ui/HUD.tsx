@@ -10,6 +10,7 @@ import { triggerEmote } from '../world3d/LocalPlayer';
 import ChatPanel from './ChatPanel';
 import WhiteboardPanel from './WhiteboardPanel';
 import FullscreenViewer from './FullscreenViewer';
+import TouchControls from './TouchControls';
 import {
   MediaPanel, JukeboxPanel, BoardPanel, TttPanel, LightsOutPanel,
   VendingPanel, KioskPanel, ElevatorPanel, BooksPanel, InventoryPanel,
@@ -264,6 +265,7 @@ export default function HUD() {
       <DialogueBox />
       <RoomEditorBar />
       <FullscreenViewer />
+      <TouchControls />
 
       {emotesOpen && (
         <div className="emotes">

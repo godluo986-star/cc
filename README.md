@@ -183,7 +183,9 @@ are separate spaces, so only the space you're in is ever rendered.
 - **Camera** can clip through walls in tight corners (no camera collision).
 - One shared media state per space: multiple TVs in one room mirror the same
   content by design.
-- No mobile touch controls yet; desktop browsers only.
+- Mobile: virtual joystick + action buttons (E/跳/抓/视角) and one-finger
+  camera drag are in; pinch-zoom and per-panel mobile layouts are still on
+  the roadmap, so complex panels (mahjong, room editor) are best on desktop.
 - Whiteboard history caps at 500 strokes per board (oldest fade out).
 - Fuzhou mahjong simplifications: no 游金/抢金, no scoring tables (flat
   credit rewards), no added-kong; xiangqi is folk-rules (win by capturing
